@@ -1,0 +1,12 @@
+[package]
+name = "daw"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+cpal = "0.16.0"
+crossbeam-channel = "0.5.15"
+
+ratatui = "0.29.0"
+color-eyre = "0.6.5"
+crossterm = "0.29.0"
