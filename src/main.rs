@@ -4,6 +4,7 @@
 mod app;
 mod input;
 mod widgets;
+mod window;
 
 use app::{App, AppState};
 use color_eyre::eyre::Result;

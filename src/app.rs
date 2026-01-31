@@ -1,30 +1,31 @@
 use crate::input::{
     Input, InputState, Mode, CommandState,
-    ResolvedCommand, EditorCommand, LocalCommand
+    ResolvedCommand, EditorCommand
 };
 
 use crate::widgets::{
-    pianoroll::{PianoRoll, PianoRollState},
+    pianoroll::PianoRollState,
     commandline::CommandLine,
 };
 
+use crate::window::{WindowStack, LayoutNode};
+
 use color_eyre::eyre::{Ok, Result};
-use ratatui::prelude::*;
 
 use ratatui::{
     DefaultTerminal, Frame,
     crossterm::event::{self, Event},
-    widgets::{Paragraph, Block, Borders, BorderType}
+    layout::{ Direction, Layout, Constraint },
 };
 
-use std::time::{Duration, Instant};
+use std::time::{Duration};
 
 pub struct AppState {
     pub running: bool,
     pub mode: Mode,
     pub input_state: InputState,
     pub command_state: CommandState,
-    pub piano_roll: PianoRollState,
+    pub windows: WindowStack
 }
 
 impl AppState {
@@ -34,7 +35,7 @@ impl AppState {
             mode: Mode::Normal,
             input_state: InputState::new(),
             command_state: CommandState::default(),
-            piano_roll: PianoRollState::new(),
+            windows: WindowStack::new(),
         }
     }
 }
@@ -54,7 +55,6 @@ impl App {
                 let Event::Key(key) = event::read()? &&
                 let Some(cmd) = Input::handle_keypress(state, key.code) {
                     App::dispatch_command(state, cmd);
-
             }
 
             terminal.draw(|frame| App::render(frame, state))?;
@@ -69,18 +69,16 @@ impl App {
 
     fn dispatch_command(state: &mut AppState, command: ResolvedCommand) {
         match command {
-            ResolvedCommand::Editor(cmd) => {
-                match cmd {
-                    EditorCommand::Quit => state.running = false,
-                    _ => ()
-                }
-            },
-            ResolvedCommand::Local(cmd) => {},
+            ResolvedCommand::Editor(cmd) => App::execute_editor_command(state, cmd),
+            ResolvedCommand::Local(cmd) => state.windows.handle_input(cmd),
         }
     }
 
     fn execute_editor_command(state: &mut AppState, command: EditorCommand) {
-
+        match command {
+            EditorCommand::Quit => state.running = false,
+            _ => ()
+        }
     }
 
     fn render(frame: &mut Frame, state: &mut AppState) {
@@ -94,36 +92,13 @@ impl App {
 
         CommandLine::render(frame, base_layout[1], state);
 
-        let layout = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints(vec![
-                Constraint::Percentage(70),
-                Constraint::Percentage(30),
-            ])
-            .split(base_layout[0]);
+        //// Temp ////
+        let id = state.windows.create_window();
+        state.windows.push_window(PianoRollState::new(id));
 
-        let piano_block = rounded_block(" Piano Roll ");
+        let node = LayoutNode::Window(id);
+        //////////////
 
-        frame.render_widget(piano_block.clone(), layout[0]);
-
-        frame.render_stateful_widget(
-            PianoRoll::default(),
-            piano_block.inner(layout[0]),
-            &mut state.piano_roll,
-        );
-
-        frame.render_widget(
-            Paragraph::new("Options")
-                .block(rounded_block(" Options ")),
-            layout[1]
-        );
+        state.windows.render_layout(frame, &node, base_layout[0]);
     }
 }
-
-fn rounded_block(title: &str) -> Block<'_> {
-    return Block::bordered()
-        .title(Line::from(title).centered())
-        .borders(Borders::ALL)
-        .border_type(BorderType::Rounded);
-}
-

@@ -1,10 +1,14 @@
-use color_eyre::owo_colors::OwoColorize;
 use ratatui::{
+    Frame,
     buffer::Buffer,
     layout::Rect,
     style::{Style, Color},
-    widgets::StatefulWidget,
+    text::Line,
+    widgets::{StatefulWidget, Block, Borders, BorderType}
 };
+
+use crate::window::Window;
+use crate::input::LocalCommand;
 
 struct Note {
     freq: u32,
@@ -21,38 +25,8 @@ struct Pos2 {
     x: u16, y: u16,
 }
 
-enum Direction {
-    Horizontal,
-    Vertical,
-}
-
-pub struct PianoRollState {
-    selected: Pos2, 
-    note_size: u8,
-    notes: Vec<Note>,
-    zoom: u8,
-}
-
 #[derive(Default)]
 pub struct PianoRoll;
-
-impl PianoRollState {
-    pub fn new() -> Self {
-        return Self {
-            selected: Pos2 { x: 2, y: 2 },
-            note_size: 4,
-            notes: Vec::new(), 
-            zoom: 1,
-        };
-    }
-}
-
-impl PianoRollState {
-    pub fn move_cursor(self: &mut Self) {
-        self.selected.x += 1;
-    }
-}
-
 impl StatefulWidget for PianoRoll {
     type State = PianoRollState;
 
@@ -75,3 +49,49 @@ impl StatefulWidget for PianoRoll {
         }
     }
 }
+
+pub struct PianoRollState {
+    id: usize,
+    selected: Pos2, 
+    note_size: u8,
+    notes: Vec<Note>,
+    zoom: u8,
+}
+
+impl PianoRollState {
+    pub fn new(id: usize) -> Self {
+        Self {
+            id: id,
+            selected: Pos2 { x: 2, y: 2 },
+            note_size: 4,
+            notes: Vec::new(), 
+            zoom: 1,
+        }
+    }
+}
+
+impl Window for PianoRollState {
+    fn id(&self) -> usize {
+        self.id
+    }
+
+    fn render(&mut self, frame: &mut Frame, area: Rect, focused: bool) {
+        let piano_block = Block::bordered()
+            .title(Line::from(" Piano Roll ").centered())
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded);
+
+        frame.render_widget(piano_block.clone(), area);
+
+        frame.render_stateful_widget(
+            PianoRoll::default(),
+            piano_block.inner(area),
+            self,
+        );
+    }
+
+    fn handle_input(&mut self, cmd: LocalCommand) {
+        
+    }
+}
+
