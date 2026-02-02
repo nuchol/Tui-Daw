@@ -5,10 +5,11 @@ use crate::input::{
 
 use crate::widgets::{
     pianoroll::PianoRollState,
+    splashscreen::SplashScreen,
     commandline::CommandLine,
 };
 
-use crate::window::{WindowStack, LayoutNode};
+use crate::window::{WindowManager, LayoutNode};
 
 use color_eyre::eyre::{Ok, Result};
 
@@ -18,14 +19,14 @@ use ratatui::{
     layout::{ Direction, Layout, Constraint },
 };
 
-use std::time::{Duration};
+use std::time::Duration;
 
 pub struct AppState {
     pub running: bool,
     pub mode: Mode,
     pub input_state: InputState,
     pub command_state: CommandState,
-    pub windows: WindowStack
+    pub windows: WindowManager
 }
 
 impl AppState {
@@ -35,7 +36,7 @@ impl AppState {
             mode: Mode::Normal,
             input_state: InputState::new(),
             command_state: CommandState::default(),
-            windows: WindowStack::new(),
+            windows: WindowManager::new(),
         }
     }
 }
@@ -77,8 +78,9 @@ impl App {
     fn execute_editor_command(state: &mut AppState, command: EditorCommand) {
         match command {
             EditorCommand::Quit => state.running = false,
+            EditorCommand::Split { direction } => { state.windows.split_current_window(direction, SplashScreen::default()); },
             _ => ()
-        }
+        };
     }
 
     fn render(frame: &mut Frame, state: &mut AppState) {
@@ -92,13 +94,6 @@ impl App {
 
         CommandLine::render(frame, base_layout[1], state);
 
-        //// Temp ////
-        let id = state.windows.create_window();
-        state.windows.push_window(PianoRollState::new(id));
-
-        let node = LayoutNode::Window(id);
-        //////////////
-
-        state.windows.render_layout(frame, &node, base_layout[0]);
+        state.windows.render_layout(frame, base_layout[0]);
     }
 }

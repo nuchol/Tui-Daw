@@ -7,6 +7,8 @@ use ratatui::{
     Frame,
 };
 
+use crate::widgets::splashscreen::SplashScreen;
+
 pub enum LayoutNode {
     Window(usize),
 
@@ -18,36 +20,55 @@ pub enum LayoutNode {
     },
 }
 
-pub struct WindowStack {
+pub struct WindowManager {
     focused: Option<usize>,
     windows: HashMap<usize, Box<dyn Window>>,
+    pub layout_tree: LayoutNode,
     last_window_id: usize,
 }
 
-impl WindowStack {
+impl WindowManager {
     pub fn new() -> Self {
+        let base_id = 0;
+        let mut windows: HashMap<usize, Box<dyn Window>> = HashMap::new();
+        windows.insert(base_id, Box::new(SplashScreen::default()));
+
         Self {
-            focused: None,
-            windows: HashMap::new(),
-            last_window_id: 0,
+            focused: Some(base_id),
+            windows: windows,
+            layout_tree: LayoutNode::Window(base_id),
+            last_window_id: base_id,
         }
     }
 
-    pub fn push_window<W>(&mut self, window: W)
+    pub fn push_window<W>(&mut self, window: W) -> usize
     where W: Window + 'static {
-        self.windows.insert(window.id(), Box::new(window));
-    }
-
-    pub fn create_window(&mut self) -> usize {
         self.last_window_id += 1;
+        self.windows.insert(self.last_window_id, Box::new(window));
         self.last_window_id
     }
 
-    pub fn render_layout(&mut self, frame: &mut Frame, node: &LayoutNode, area: Rect) {
+    pub fn render_layout(&mut self, frame: &mut Frame, area: Rect) {
+        Self::do_render_layout(
+            frame,
+            &self.layout_tree,
+            area,
+            &mut self.windows,
+            self.focused
+        );
+    }
+
+    fn do_render_layout(
+        frame: &mut Frame,
+        node: &LayoutNode,
+        area: Rect,
+        windows: &mut HashMap<usize, Box<dyn Window>>,
+        focused: Option<usize>,
+    ) {
         match node {
             LayoutNode::Window(id) => {
-                let window = self.windows.get_mut(&id).unwrap();
-                let focused = self.focused == Some(*id);
+                let window = windows.get_mut(&id).unwrap();
+                let focused = focused == Some(*id);
 
                 window.render(frame, area, focused);
             },
@@ -61,10 +82,61 @@ impl WindowStack {
                     ])
                     .split(area);
 
-                self.render_layout(frame, &first, layout[0]);
-                self.render_layout(frame, &second, layout[1]);
+                Self::do_render_layout(frame, &first, layout[0], windows, focused);
+                Self::do_render_layout(frame, &second, layout[1], windows, focused);
             }
         }
+    }
+
+    pub fn split_current_window<W>(
+        &mut self,
+        direction: Direction,
+        new_window: W
+    ) -> bool 
+    where W: Window + 'static
+    {
+        let Some(focus) = self.focused else { return false };
+
+        let old_id = match Self::get_focused_node(&mut self.layout_tree, focus) {
+            Some(LayoutNode::Window(id)) => *id,
+            _ => return false,
+        };
+
+        let new_id = self.push_window(new_window);
+
+        if let Some(node) = Self::get_focused_node(
+            &mut self.layout_tree, focus
+        ) {
+            *node = LayoutNode::Split {
+                direction: direction,
+                ratio: 0.5,
+                first: Box::new(LayoutNode::Window(old_id)),
+                second: Box::new(LayoutNode::Window(new_id)),
+            };
+
+            self.set_focuesed(new_id);
+
+            return true;
+        }
+
+        false
+    }
+
+    fn get_focused_node(node: &mut LayoutNode, focused: usize) -> Option<&mut LayoutNode> {
+        match node {
+            LayoutNode::Window(id) if *id == focused => Some(node),
+
+            LayoutNode::Split { first, second, .. } => {
+                Self::get_focused_node(first, focused)
+                    .or_else(|| Self::get_focused_node(second, focused))
+            }
+
+            LayoutNode::Window(_) => None,
+        }
+    }
+
+    pub fn set_focuesed(&mut self, id: usize) {
+        self.focused = Some(id);
     }
 
     pub fn handle_input(&mut self, cmd: LocalCommand) {
@@ -76,8 +148,6 @@ impl WindowStack {
 }
 
 pub trait Window {
-    fn id(&self) -> usize;
-
     fn render(&mut self, frame: &mut Frame, area: Rect, focused: bool);
     fn handle_input(&mut self, cmd: LocalCommand);
 }

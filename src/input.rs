@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fmt;
 use ratatui::crossterm::event::KeyCode;
+use ratatui::layout::Direction;
 
 use crate::AppState;
 
@@ -69,6 +70,7 @@ pub enum EditorCommand {
     Mute { count: usize, motion: Motion },
     Solo { count: usize, motion: Motion },
     Bpm { bpm: u32 },
+    Split { direction: Direction },
     Quit,
 }
 
@@ -291,6 +293,17 @@ fn resolve_command(
 ) -> Option<ResolvedCommand> {
     match command.as_str() {
         "q" | "quit" => Some(ResolvedCommand::Editor(EditorCommand::Quit)),
+
+        // We want to split accross the opposite direction since
+        // splitting adds another window on the 'direction' axis.
+        "vsplit" => Some(ResolvedCommand::Editor(
+            EditorCommand::Split { direction: Direction::Horizontal }
+        )),
+
+        "hsplit" => Some(ResolvedCommand::Editor(
+            EditorCommand::Split { direction: Direction::Vertical }
+        )),
+
         _ => None,
     }
 }

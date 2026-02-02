@@ -51,7 +51,6 @@ impl StatefulWidget for PianoRoll {
 }
 
 pub struct PianoRollState {
-    id: usize,
     selected: Pos2, 
     note_size: u8,
     notes: Vec<Note>,
@@ -59,9 +58,8 @@ pub struct PianoRollState {
 }
 
 impl PianoRollState {
-    pub fn new(id: usize) -> Self {
+    pub fn new() -> Self {
         Self {
-            id: id,
             selected: Pos2 { x: 2, y: 2 },
             note_size: 4,
             notes: Vec::new(), 
@@ -71,15 +69,14 @@ impl PianoRollState {
 }
 
 impl Window for PianoRollState {
-    fn id(&self) -> usize {
-        self.id
-    }
-
     fn render(&mut self, frame: &mut Frame, area: Rect, focused: bool) {
         let piano_block = Block::bordered()
             .title(Line::from(" Piano Roll ").centered())
             .borders(Borders::ALL)
-            .border_type(BorderType::Rounded);
+            .border_type(BorderType::Rounded)
+            .style(Style::default().fg(
+                 if focused { Color::White } else { Color::DarkGray }
+            ));
 
         frame.render_widget(piano_block.clone(), area);
 
