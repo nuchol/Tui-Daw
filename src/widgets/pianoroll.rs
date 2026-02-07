@@ -7,6 +7,7 @@ use ratatui::{
     widgets::{StatefulWidget, Block, Borders, BorderType}
 };
 
+use crate::widgets::theme::UIStyle;
 use crate::window::Window;
 use crate::input::LocalCommand;
 
@@ -37,7 +38,10 @@ impl StatefulWidget for PianoRoll {
                 let y = area.y + dy;
 
                 if let Some(cell) = buf.cell_mut((x, y)) {
-                    if state.selected == (Pos2 {x, y}) {
+                    if dx == 3 {
+                        cell.set_style(Style::default().fg(Color::White));
+                        cell.set_char('▎');
+                    } else if state.selected == (Pos2 {x, y}) {
                         cell.set_style(Style::default().fg(Color::White));
                         cell.set_char('█');
                     } else {
@@ -70,19 +74,12 @@ impl PianoRollState {
 
 impl Window for PianoRollState {
     fn render(&mut self, frame: &mut Frame, area: Rect, focused: bool) {
-        let piano_block = Block::bordered()
-            .title(Line::from(" Piano Roll ").centered())
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded)
-            .style(Style::default().fg(
-                 if focused { Color::White } else { Color::DarkGray }
-            ));
-
-        frame.render_widget(piano_block.clone(), area);
+        let block = UIStyle::window_border("Piano Roll", focused);
+        frame.render_widget(&block, area);
 
         frame.render_stateful_widget(
             PianoRoll::default(),
-            piano_block.inner(area),
+            block.inner(area),
             self,
         );
     }

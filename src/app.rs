@@ -4,12 +4,11 @@ use crate::input::{
 };
 
 use crate::widgets::{
-    pianoroll::PianoRollState,
-    splashscreen::SplashScreen,
+    splitselect::SplitSelect,
     commandline::CommandLine,
 };
 
-use crate::window::{WindowManager, LayoutNode};
+use crate::window::WindowManager;
 
 use color_eyre::eyre::{Ok, Result};
 
@@ -44,14 +43,7 @@ impl AppState {
 pub struct App;
 impl App {
     pub fn run_loop(mut terminal: DefaultTerminal, state: &mut AppState) -> Result<()> {
-        // let tick_rate = Duration::from_millis(16);
-        // let mut last_tick = Instant::now();
-
         while state.running {
-            // let timeout = tick_rate
-            //     .checked_sub(last_tick.elapsed())
-            //     .unwrap_or(Duration::ZERO);
-
             if event::poll(Duration::from_millis(16))? &&
                 let Event::Key(key) = event::read()? &&
                 let Some(cmd) = Input::handle_keypress(state, key.code) {
@@ -59,10 +51,6 @@ impl App {
             }
 
             terminal.draw(|frame| App::render(frame, state))?;
-            
-            // if last_tick.elapsed() >= tick_rate {
-            //     last_tick = Instant::now();
-            // }
         }
 
         Ok(())
@@ -78,7 +66,7 @@ impl App {
     fn execute_editor_command(state: &mut AppState, command: EditorCommand) {
         match command {
             EditorCommand::Quit => state.running = false,
-            EditorCommand::Split { direction } => { state.windows.split_current_window(direction, SplashScreen::default()); },
+            EditorCommand::Split { direction } => { state.windows.split_current_window(direction, SplitSelect::default()); },
             _ => ()
         };
     }

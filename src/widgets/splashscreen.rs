@@ -51,7 +51,7 @@
 // ⠀⠀⠤⢆⠆⠈⠉⠳⠤⣄⡀⠀⠀⠀⠙⢻⣿⣿⠿⠿⠿⢻⣿⠙⠇
 // ⠠⠤⠀⣉⣁⣢⣄⣀⣀⣤⣿⠷⠦⠤⣠⡶⠿⣟⠀⠀⠀⠀⠻⡀⠀
 // ⠀⠀⠔⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠃⠃⠉⠉⠛⠛⠿⢷⡶⠀⠀
-use crate::window::Window;
+use crate::{widgets::theme::UIStyle, window::Window};
 use crate::input::LocalCommand;
 
 use ratatui::{
@@ -59,7 +59,7 @@ use ratatui::{
     layout::{ Rect, Direction, Layout, Constraint, Alignment },
     style::{Color, Style},
     text::Text,
-    widgets::{Paragraph, Block, Borders, BorderType}
+    widgets::{Paragraph}
 
 };
 
@@ -103,12 +103,7 @@ impl Window for SplashScreen {
         let title_lines = TITLE.trim_matches('\n').lines().count();
         let spacing = 2;
 
-        let block = Block::bordered()
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded)
-            .style(Style::default().fg(
-                 if focused { Color::White } else { Color::DarkGray }
-            ));
+        let block = UIStyle::window_border("", focused);
 
         let chunks = Layout::default()
             .direction(Direction::Vertical)
@@ -119,7 +114,7 @@ impl Window for SplashScreen {
             ])
             .split(block.inner(area));
 
-        frame.render_widget(block.clone(), area);
+        frame.render_widget(&block, area);
 
         frame.render_widget(Paragraph::new(
             Text::from(ICON.trim_matches('\n')))
