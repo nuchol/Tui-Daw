@@ -66,7 +66,7 @@ impl App {
     fn execute_editor_command(state: &mut AppState, command: EditorCommand) {
         match command {
             EditorCommand::Quit => state.running = false,
-            EditorCommand::Split { direction } => { state.windows.split_current_window(direction, SplitSelect::default()); },
+            EditorCommand::Split { direction } => { state.windows.split_current_window(direction, SplitSelect::new()); },
             _ => ()
         };
     }

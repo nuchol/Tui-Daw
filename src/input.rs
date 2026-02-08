@@ -101,7 +101,7 @@ impl Input {
             Mode::Command => handle_command_mode(state, key),
         };
 
-        resolve_action(state, action)
+        resolve_action(action)
     }
 }
 
@@ -236,36 +236,44 @@ fn handle_insert_mode(
 }
 
 fn resolve_action(
-    state: &mut AppState,
     action: Option<InputAction>
 ) -> Option<ResolvedCommand> {
     match action {
         Some(InputAction::Move { count, motion }) => {
-            resolve_move(state, count, motion)
+            resolve_move(count, motion)
         }
 
         Some(InputAction::Operation {
             count,
             operator,
             motion,
-        }) => resolve_operation(state, count, operator, motion),
+        }) => resolve_operation(count, operator, motion),
 
-        Some(InputAction::Command(cmd)) => resolve_command(state, cmd),
+        Some(InputAction::Command(cmd)) => resolve_command(cmd),
 
         None => None
     }
 }
 
 fn resolve_move(
-    state: &AppState,
     count: usize,
     motion: Motion,
 ) -> Option<ResolvedCommand> {
-    None
+    let mut dy = 0;
+    let mut dx = 0;
+
+    match motion {
+        Motion::Up    => dy = count as i32,
+        Motion::Down  => dy = -(count as i32),
+        Motion::Left  => dx = -(count as i32),
+        Motion::Right => dx = count as i32,
+        _ => return None,
+    }
+
+    Some(ResolvedCommand::Local(LocalCommand::MoveLocalCursor { dx, dy }))
 }
 
 fn resolve_operation(
-    state: &AppState,
     count: usize,
     operator: Operator,
     motion: Motion,
@@ -288,7 +296,6 @@ fn resolve_operation(
 }
 
 fn resolve_command(
-    state: &AppState,
     command: String,
 ) -> Option<ResolvedCommand> {
     match command.as_str() {
