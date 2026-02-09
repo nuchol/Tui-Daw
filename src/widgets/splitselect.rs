@@ -8,7 +8,7 @@ use ratatui::{
     layout::Rect,
     style::{Style, Color},
     text::Line,
-    widgets::{Block, Borders, BorderType, StatefulWidget},
+    widgets::{StatefulWidget, Clear},
 };
 
 #[derive(Default)]
@@ -35,16 +35,16 @@ impl SplitSelect<'_> {
 
 impl Window for SplitSelect<'_> {
     fn render(&mut self, frame: &mut Frame, area: Rect, focused: bool) {
-        let block = UIStyle::window_border("", focused);
-        frame.render_widget(&block, area);
+        let block = UIStyle::window_border("New Window", focused);
 
         let list_area = UIStyle::centered_rect(50, 50, area);
+        frame.render_widget(Clear, block.inner(list_area));
 
         let list = ButtonList::new()
-            .block(Block::new().borders(Borders::ALL).border_type(BorderType::Rounded))
+            .block(block)
             .style(Style::default().fg(Color::White));
 
-        list.render(block.inner(list_area), frame.buffer_mut(), &mut self.list_state);
+        list.render(list_area, frame.buffer_mut(), &mut self.list_state);
     }
 
     fn handle_input(&mut self, cmd: LocalCommand) {

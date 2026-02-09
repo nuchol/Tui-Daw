@@ -23,8 +23,9 @@ pub enum LayoutNode {
 pub struct WindowManager {
     focused: Option<usize>,
     windows: HashMap<usize, Box<dyn Window>>,
-    pub layout_tree: LayoutNode,
+    layout_tree: LayoutNode,
     last_window_id: usize,
+    popup_stack: Vec<usize>,
 }
 
 impl WindowManager {
@@ -38,53 +39,36 @@ impl WindowManager {
             windows: windows,
             layout_tree: LayoutNode::Window(base_id),
             last_window_id: base_id,
+            popup_stack: Vec::new(),
         }
     }
 
-    pub fn push_window<W>(&mut self, window: W) -> usize
+    fn push_window<W>(&mut self, window: W) -> usize
     where W: Window + 'static {
         self.last_window_id += 1;
         self.windows.insert(self.last_window_id, Box::new(window));
         self.last_window_id
     }
 
-    pub fn render_layout(&mut self, frame: &mut Frame, area: Rect) {
-        Self::do_render_layout(
-            frame,
-            &self.layout_tree,
-            area,
-            &mut self.windows,
-            self.focused
-        );
+    fn remove_window(&mut self, id: usize) -> Option<usize> {
+        if self.windows.remove(&id).is_some() {
+            Some(id)
+        } else {
+            None
+        }
     }
 
-    fn do_render_layout(
-        frame: &mut Frame,
-        node: &LayoutNode,
-        area: Rect,
-        windows: &mut HashMap<usize, Box<dyn Window>>,
-        focused: Option<usize>,
-    ) {
-        match node {
-            LayoutNode::Window(id) => {
-                let window = windows.get_mut(&id).unwrap();
-                let focused = focused == Some(*id);
+    pub fn push_popup<W>(&mut self, window: W)
+    where W: Window + 'static {
+        let id = self.push_window(window);
+        self.popup_stack.push(id);
+    }
 
-                window.render(frame, area, focused);
-            },
-
-            LayoutNode::Split { direction, ratio, first, second } => {
-                let layout = Layout::default()
-                    .direction(*direction)
-                    .constraints(vec![
-                        Constraint::Percentage((ratio * 100.0) as u16),
-                        Constraint::Percentage(((1.0 - ratio) * 100.0) as u16),
-                    ])
-                    .split(area);
-
-                Self::do_render_layout(frame, &first, layout[0], windows, focused);
-                Self::do_render_layout(frame, &second, layout[1], windows, focused);
-            }
+    pub fn pop_popup(&mut self) -> Option<usize> {
+        if let Some(id) = self.popup_stack.pop() {
+            self.remove_window(id)
+        } else {
+            None
         }
     }
 
@@ -122,6 +106,54 @@ impl WindowManager {
         false
     }
 
+    pub fn render_layout(&mut self, frame: &mut Frame, area: Rect) {
+        let window_id = self.popup_stack.last();
+        let focused = window_id.copied().or(self.focused);
+
+        Self::do_render_layout(
+            frame,
+            &self.layout_tree,
+            area,
+            &mut self.windows,
+            focused,
+        );
+
+        if self.popup_stack.is_empty() { return; }
+
+        let window = self.windows.get_mut(window_id.unwrap()).unwrap();
+        window.render(frame, area, true);
+    }
+
+    fn do_render_layout(
+        frame: &mut Frame,
+        node: &LayoutNode,
+        area: Rect,
+        windows: &mut HashMap<usize, Box<dyn Window>>,
+        focused: Option<usize>,
+    ) {
+        match node {
+            LayoutNode::Window(id) => {
+                let window = windows.get_mut(&id).unwrap();
+                let is_focused = focused == Some(*id);
+
+                window.render(frame, area, is_focused);
+            },
+
+            LayoutNode::Split { direction, ratio, first, second } => {
+                let layout = Layout::default()
+                    .direction(*direction)
+                    .constraints(vec![
+                        Constraint::Percentage((ratio * 100.0) as u16),
+                        Constraint::Percentage(((1.0 - ratio) * 100.0) as u16),
+                    ])
+                    .split(area);
+
+                Self::do_render_layout(frame, &first, layout[0], windows, focused);
+                Self::do_render_layout(frame, &second, layout[1], windows, focused);
+            }
+        }
+    }
+
     fn get_focused_node(node: &mut LayoutNode, focused: usize) -> Option<&mut LayoutNode> {
         match node {
             LayoutNode::Window(id) if *id == focused => Some(node),
@@ -140,7 +172,10 @@ impl WindowManager {
     }
 
     pub fn handle_input(&mut self, cmd: LocalCommand) {
-        if let Some(id) = self.focused {
+        let window_id = self.popup_stack.last();
+        let focused = window_id.copied().or(self.focused);
+
+        if let Some(id) = focused {
             let window = self.windows.get_mut(&id).unwrap();
             window.handle_input(cmd);
         }

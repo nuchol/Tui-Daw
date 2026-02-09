@@ -16,7 +16,7 @@ pub struct Button<'a> {
 #[derive(Default)]
 pub struct ButtonListState<'a> {
     items: Vec<Button<'a>>,
-    hovered: Option<usize>,
+    pub hovered: Option<usize>,
 }
 
 impl<'a> ButtonListState<'a> {
