@@ -8,16 +8,18 @@ use ratatui::{
     layout::Rect,
     style::{Style, Color},
     text::Line,
+    layout::Direction,
     widgets::{StatefulWidget, Clear},
 };
 
 #[derive(Default)]
 pub struct SplitSelect<'a> {
     list_state: ButtonListState<'a>,
+    direction: Direction,
 }
 
 impl SplitSelect<'_> {
-    pub fn new() -> Self {
+    pub fn new(direction: Direction) -> Self {
         let mut buttons = Vec::new();
         for i in 0..5 {
             buttons.push(Button {
@@ -29,6 +31,7 @@ impl SplitSelect<'_> {
 
         Self {
             list_state: ButtonListState::new(buttons),
+            direction,
         }
     }
 }

@@ -83,8 +83,8 @@ pub enum ResolvedCommand {
     Local(LocalCommand)
 }
 
-pub struct Input;
-impl Input {
+pub struct VimInput;
+impl VimInput {
     pub fn handle_keypress(
         state: &mut AppState,
         key: KeyCode

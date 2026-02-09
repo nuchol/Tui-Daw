@@ -72,6 +72,10 @@ impl WindowManager {
         }
     }
 
+    pub fn is_popup_active(&self) -> bool {
+        !self.popup_stack.is_empty()
+    }
+
     pub fn split_current_window<W>(
         &mut self,
         direction: Direction,

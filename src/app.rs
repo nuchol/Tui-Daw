@@ -1,5 +1,5 @@
 use crate::input::{
-    Input, InputState, Mode, CommandState,
+    VimInput, InputState, Mode, CommandState,
     ResolvedCommand, EditorCommand
 };
 
@@ -14,7 +14,7 @@ use color_eyre::eyre::{Ok, Result};
 
 use ratatui::{
     DefaultTerminal, Frame,
-    crossterm::event::{self, Event},
+    crossterm::event::{self, Event, KeyEvent, KeyCode},
     layout::{ Direction, Layout, Constraint },
 };
 
@@ -45,29 +45,43 @@ impl App {
     pub fn run_loop(mut terminal: DefaultTerminal, state: &mut AppState) -> Result<()> {
         while state.running {
             if event::poll(Duration::from_millis(16))? &&
-                let Event::Key(key) = event::read()? &&
-                let Some(cmd) = Input::handle_keypress(state, key.code) {
-                    App::dispatch_command(state, cmd);
+                let Event::Key(key) = event::read()? {
+                Self::handle_keyevent(state, key);
             }
 
-            terminal.draw(|frame| App::render(frame, state))?;
+            terminal.draw(|frame| Self::render(frame, state))?;
         }
 
         Ok(())
     }
 
-    fn dispatch_command(state: &mut AppState, command: ResolvedCommand) {
-        match command {
-            ResolvedCommand::Editor(cmd) => App::execute_editor_command(state, cmd),
-            ResolvedCommand::Local(cmd) => state.windows.handle_input(cmd),
+    fn handle_keyevent(state: &mut AppState, key: KeyEvent) {
+        if state.windows.is_popup_active()
+            && key.code == KeyCode::Esc {
+            state.windows.pop_popup();
+        }
+
+        if let Some(cmd) = VimInput::handle_keypress(state, key.code) {
+            match cmd {
+                ResolvedCommand::Editor(editor_cmd) => {
+                    Self::execute_editor_command(state, editor_cmd);
+                },
+
+                ResolvedCommand::Local(local_cmd) => {
+                    state.windows.handle_input(local_cmd);
+                },
+            }
         }
     }
 
     fn execute_editor_command(state: &mut AppState, command: EditorCommand) {
         match command {
             EditorCommand::Quit => state.running = false,
-            // EditorCommand::Split { direction } => { state.windows.split_current_window(direction, SplitSelect::new()); },
-            EditorCommand::Split { direction } => { state.windows.push_popup(SplitSelect::new()); },
+
+            EditorCommand::Split { direction } => { 
+                state.windows.push_popup(SplitSelect::new(direction));
+            },
+            
             _ => ()
         };
     }
