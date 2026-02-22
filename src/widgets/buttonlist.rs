@@ -1,10 +1,10 @@
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
-    style::{Modifier, Style},
-    text::{Line},
-    widgets::{Block, StatefulWidget},
     prelude::*,
+    style::{Modifier, Style},
+    text::Line,
+    widgets::{Block, StatefulWidget}
 };
 
 pub struct Button<'a> {
@@ -16,7 +16,8 @@ pub struct Button<'a> {
 #[derive(Default)]
 pub struct ButtonListState<'a> {
     items: Vec<Button<'a>>,
-    pub hovered: Option<usize>,
+    hovered: Option<usize>,
+    selected: Option<usize>,
 }
 
 impl<'a> ButtonListState<'a> {
@@ -24,12 +25,34 @@ impl<'a> ButtonListState<'a> {
         Self {
             items: buttons,
             hovered: None,
+            selected: None
         }
     }
 
-    pub fn hovered(&mut self, hovered: Option<usize>) -> &mut Self {
+    pub fn hovered(mut self, hovered: Option<usize>) -> Self {
         self.hovered = hovered;
         self
+    }
+
+    pub fn get_hovered(&self) -> Option<usize> {
+        self.hovered
+    }
+
+    pub fn selected(mut self, selected: Option<usize>) -> Self {
+        self.selected = selected;
+        self
+    }
+
+    pub fn get_selected(&self) -> Option<usize> {
+        self.selected
+    }
+
+    pub fn set_selected(&mut self, selected: Option<usize>) {
+        self.selected = selected
+    }
+
+    pub fn get_num_items(&self) -> usize {
+        self.items.len()
     }
 
     pub fn add_button(&mut self, button: Button<'a>) {
@@ -78,8 +101,10 @@ impl<'a> ButtonListState<'a> {
 
 pub struct ButtonList<'a> {
     block: Option<Block<'a>>,
-    hovered_style: Style,
     style: Style,
+    hovered_style: Style,
+    padding: u16,
+    hovered_character: &'a str,
 }
 
 impl<'a> ButtonList<'a> {
@@ -88,6 +113,8 @@ impl<'a> ButtonList<'a> {
             block: None,
             hovered_style: Style::default().add_modifier(Modifier::REVERSED),
             style: Style::default(),
+            padding: 0,
+            hovered_character: "",
         }
     }
 
@@ -105,6 +132,16 @@ impl<'a> ButtonList<'a> {
         self.hovered_style = style;
         self
     }
+
+    pub fn padding(mut self, padding: u16) -> ButtonList<'a> {
+        self.padding = padding;
+        self
+    }
+
+    pub fn hovered_character(mut self, character: &'a str) -> ButtonList<'a> {
+        self.hovered_character = character;
+        self
+    }
 }
 
 impl<'a> StatefulWidget for ButtonList<'a> {
@@ -120,25 +157,31 @@ impl<'a> StatefulWidget for ButtonList<'a> {
 
         let mut current_height = 1;
         for (i, button) in state.items.iter().enumerate() {
-            if i as u16 >= list_area.height { break; }
+            if (i * self.padding as usize) as u16 >= list_area.height { break; }
 
             let row = Rect {
-                x: list_area.left() + 1,
+                x: list_area.left(),
                 y: list_area.top() + current_height,
-                width: list_area.width - 2,
+                width: list_area.width,
                 height: button.height,
             };
 
-            current_height += button.height;
+            current_height += button.height + self.padding;
 
             let button_style = self.style.patch(button.style);
             buf.set_style(row, button_style);
 
+            let mut label = button.label.clone();
             if state.hovered == Some(i) {
+                let mut spans = label.spans;
+                let style = spans.first().map(|s| s.style).unwrap_or_default();
+                spans.insert(0, Span::styled(self.hovered_character, style));
+                label = Line::from(spans);
+
                 buf.set_style(row, self.hovered_style);
             }
 
-            button.label.clone().render(row, buf);
+            label.clone().render(row, buf);
         }
     }
 }

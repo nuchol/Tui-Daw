@@ -44,6 +44,7 @@ pub enum Operator {
     Redo,
     Mute,
     Solo,
+    Confirm,
 }
 
 pub enum InputAction {
@@ -76,6 +77,7 @@ pub enum EditorCommand {
 
 pub enum LocalCommand {
     MoveLocalCursor { dx: i32, dy: i32 },
+    Confirm,
 }
 
 pub enum ResolvedCommand {
@@ -199,6 +201,11 @@ fn handle_normal_mode(
             emit_action(&mut state.input_state, Motion::None)
         }
 
+        KeyCode::Enter => {
+            state.input_state.operator = Some(Operator::Confirm);
+            emit_action(&mut state.input_state, Motion::None)
+        }
+
         KeyCode::Char('h') => emit_action(&mut state.input_state, Motion::Left),
         KeyCode::Char('j') => emit_action(&mut state.input_state, Motion::Down),
         KeyCode::Char('k') => emit_action(&mut state.input_state, Motion::Up),
@@ -290,6 +297,10 @@ fn resolve_operation(
         Operator::Mute => Some(ResolvedCommand::Editor(
             EditorCommand::Mute { count, motion }
         )),
+
+        Operator::Confirm => Some(
+            ResolvedCommand::Local(LocalCommand::Confirm)
+        ),
 
         _ => None,
     }

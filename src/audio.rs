@@ -89,13 +89,12 @@ impl Output {
         let device = self.device.clone();
 
         match self.config.sample_format() {
-            // CASE: format is i8. DO => run as i8
-            cpal::SampleFormat::I8 => run::<i8>(func, device, self.config.config()),
+            cpal::SampleFormat::I8  => run::<i8>(func, device, self.config.config()),
             cpal::SampleFormat::I16 => run::<i16>(func, device, self.config.config()),
             cpal::SampleFormat::I32 => run::<i32>(func, device, self.config.config()),
             cpal::SampleFormat::I64 => run::<i64>(func, device, self.config.config()),
 
-            cpal::SampleFormat::U8 => run::<u8>(func, device, self.config.config()),
+            cpal::SampleFormat::U8  => run::<u8>(func, device, self.config.config()),
             cpal::SampleFormat::U16 => run::<u16>(func, device, self.config.config()),
             cpal::SampleFormat::U32 => run::<u32>(func, device, self.config.config()),
             cpal::SampleFormat::U64 => run::<u64>(func, device, self.config.config()),

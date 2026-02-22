@@ -6,6 +6,7 @@ use crate::input::{
 use crate::widgets::{
     splitselect::SplitSelect,
     commandline::CommandLine,
+    pianoroll::PianoRollState
 };
 
 use crate::window::WindowManager;
@@ -77,9 +78,10 @@ impl App {
     fn execute_editor_command(state: &mut AppState, command: EditorCommand) {
         match command {
             EditorCommand::Quit => state.running = false,
-
             EditorCommand::Split { direction } => { 
-                state.windows.push_popup(SplitSelect::new(direction));
+                let popup = SplitSelect::new();
+                state.windows.push_popup(popup);
+                state.windows.split_current_window(direction, PianoRollState::new());
             },
             
             _ => ()
