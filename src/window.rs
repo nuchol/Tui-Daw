@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::input::LocalCommand;
+use crate::input::{EditorCommand, LocalCommand};
 
 use ratatui::{
     layout::{ Rect, Direction, Layout, Constraint },
@@ -19,6 +19,12 @@ pub enum LayoutNode {
         second: Box<LayoutNode>,
     },
 }
+
+pub enum WindowPaneType {
+    Popup,
+    Direction { direction: Direction },
+}
+
 
 pub struct WindowManager {
     focused: Option<usize>,
@@ -43,10 +49,9 @@ impl WindowManager {
         }
     }
 
-    fn push_window<W>(&mut self, window: W) -> usize
-    where W: Window + 'static {
+    fn push_window(&mut self, window: Box<dyn Window>) -> usize {
         self.last_window_id += 1;
-        self.windows.insert(self.last_window_id, Box::new(window));
+        self.windows.insert(self.last_window_id, window);
         self.last_window_id
     }
 
@@ -58,8 +63,7 @@ impl WindowManager {
         }
     }
 
-    pub fn push_popup<W>(&mut self, window: W)
-    where W: Window + 'static {
+    pub fn push_popup(&mut self, window: Box<dyn Window>) {
         let id = self.push_window(window);
         self.popup_stack.push(id);
     }
@@ -76,12 +80,11 @@ impl WindowManager {
         !self.popup_stack.is_empty()
     }
 
-    pub fn split_current_window<W>(
+    pub fn split_current_window(
         &mut self,
         direction: Direction,
-        new_window: W
+        new_window: Box<dyn Window>,
     ) -> bool 
-    where W: Window + 'static
     {
         let Some(focus) = self.focused else { return false };
 
@@ -175,18 +178,20 @@ impl WindowManager {
         self.focused = Some(id);
     }
 
-    pub fn handle_input(&mut self, cmd: LocalCommand) {
+    pub fn handle_input(&mut self, cmd: LocalCommand) -> Option<EditorCommand> {
         let window_id = self.popup_stack.last();
         let focused = window_id.copied().or(self.focused);
 
         if let Some(id) = focused {
             let window = self.windows.get_mut(&id).unwrap();
-            window.handle_input(cmd);
+            return window.handle_input(cmd);
         }
+
+        None
     }
 }
 
 pub trait Window {
     fn render(&mut self, frame: &mut Frame, area: Rect, focused: bool);
-    fn handle_input(&mut self, cmd: LocalCommand);
+    fn handle_input(&mut self, cmd: LocalCommand) -> Option<EditorCommand>;
 }

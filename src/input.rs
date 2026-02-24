@@ -4,6 +4,8 @@ use ratatui::crossterm::event::KeyCode;
 use ratatui::layout::Direction;
 
 use crate::AppState;
+use crate::widgets::splitselect::SplitSelect;
+use crate::window::{Window, WindowPaneType};
 
 pub enum Mode {
     Normal,
@@ -71,7 +73,7 @@ pub enum EditorCommand {
     Mute { count: usize, motion: Motion },
     Solo { count: usize, motion: Motion },
     Bpm { bpm: u32 },
-    Split { direction: Direction },
+    OpenWindow { display: WindowPaneType, window: Box<dyn Window> },
     Quit,
 }
 
@@ -315,11 +317,17 @@ fn resolve_command(
         // We want to split accross the opposite direction since
         // splitting adds another window on the 'direction' axis.
         "vsplit" => Some(ResolvedCommand::Editor(
-            EditorCommand::Split { direction: Direction::Horizontal }
+            EditorCommand::OpenWindow { 
+                display: WindowPaneType::Popup,
+                window: Box::new(SplitSelect::new(Direction::Horizontal))
+            }
         )),
 
         "hsplit" => Some(ResolvedCommand::Editor(
-            EditorCommand::Split { direction: Direction::Vertical }
+            EditorCommand::OpenWindow { 
+                display: WindowPaneType::Popup,
+                window: Box::new(SplitSelect::new(Direction::Vertical))
+            }
         )),
 
         _ => None,

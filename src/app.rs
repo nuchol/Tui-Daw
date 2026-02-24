@@ -4,12 +4,10 @@ use crate::input::{
 };
 
 use crate::widgets::{
-    splitselect::SplitSelect,
     commandline::CommandLine,
-    pianoroll::PianoRollState
 };
 
-use crate::window::WindowManager;
+use crate::window::{WindowManager, WindowPaneType};
 
 use color_eyre::eyre::{Ok, Result};
 
@@ -69,7 +67,9 @@ impl App {
                 },
 
                 ResolvedCommand::Local(local_cmd) => {
-                    state.windows.handle_input(local_cmd);
+                    if let Some(editor_cmd) = state.windows.handle_input(local_cmd) {
+                        Self::execute_editor_command(state, editor_cmd);
+                    }
                 },
             }
         }
@@ -78,11 +78,15 @@ impl App {
     fn execute_editor_command(state: &mut AppState, command: EditorCommand) {
         match command {
             EditorCommand::Quit => state.running = false,
-            EditorCommand::Split { direction } => { 
-                let popup = SplitSelect::new();
-                state.windows.push_popup(popup);
-                state.windows.split_current_window(direction, PianoRollState::new());
-            },
+            EditorCommand::OpenWindow { display, window } => {
+                state.windows.pop_popup();
+                match display {
+                    WindowPaneType::Popup => { state.windows.push_popup(window); }
+                    WindowPaneType::Direction { direction } => {
+                        state.windows.split_current_window(direction, window);
+                    }
+                }
+            }
             
             _ => ()
         };

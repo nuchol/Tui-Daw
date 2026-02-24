@@ -52,7 +52,7 @@
 // ⠠⠤⠀⣉⣁⣢⣄⣀⣀⣤⣿⠷⠦⠤⣠⡶⠿⣟⠀⠀⠀⠀⠻⡀⠀
 // ⠀⠀⠔⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠃⠃⠉⠉⠛⠛⠿⢷⡶⠀⠀
 use crate::{widgets::theme::UIStyle, window::Window};
-use crate::input::LocalCommand;
+use crate::input::{EditorCommand, LocalCommand};
 
 use ratatui::{
     Frame,
@@ -131,9 +131,7 @@ impl Window for SplashScreen {
         );
     }
 
-    fn handle_input(&mut self, cmd: LocalCommand) {
-        match cmd {
-            _ => ()
-        }
+    fn handle_input(&mut self, cmd: LocalCommand) -> Option<EditorCommand> {
+        None
     }
 }

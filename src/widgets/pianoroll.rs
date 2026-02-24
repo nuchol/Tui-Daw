@@ -3,11 +3,10 @@ use ratatui::{
     buffer::Buffer,
     layout::Rect,
     style::{Style, Color},
-    text::Line,
-    widgets::{StatefulWidget, Block, Borders, BorderType}
+    widgets::{StatefulWidget}
 };
 
-use crate::widgets::theme::UIStyle;
+use crate::{input::EditorCommand, widgets::theme::UIStyle};
 use crate::window::Window;
 use crate::input::LocalCommand;
 
@@ -84,8 +83,8 @@ impl Window for PianoRollState {
         );
     }
 
-    fn handle_input(&mut self, cmd: LocalCommand) {
-        
+    fn handle_input(&mut self, cmd: LocalCommand) -> Option<EditorCommand> {
+        None
     }
 }
 

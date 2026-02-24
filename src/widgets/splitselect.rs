@@ -1,6 +1,6 @@
 use crate::widgets::pianoroll::PianoRollState;
-use crate::window::{Window, WindowManager};
-use crate::input::LocalCommand;
+use crate::window::{Window, WindowPaneType};
+use crate::input::{EditorCommand, LocalCommand};
 use crate::widgets::theme::UIStyle;
 use crate::widgets::buttonlist::{ButtonList, ButtonListState, Button};
 
@@ -15,11 +15,12 @@ use ratatui::{
 };
 
 pub struct SplitSelect<'a> {
+    direction: Direction,
     list_state: ButtonListState<'a>,
 }
 
 impl<'a> SplitSelect<'a> {
-    pub fn new() -> Self {
+    pub fn new(direction: Direction) -> Self {
         let mut buttons = Vec::new();
         for i in 0..5 {
             buttons.push(Button {
@@ -29,7 +30,10 @@ impl<'a> SplitSelect<'a> {
             });
         }
 
-        Self { list_state: ButtonListState::new(buttons).hovered(Some(0)) }
+        Self {
+            direction, 
+            list_state: ButtonListState::new(buttons).hovered(Some(0))
+        }
     }
 }
 
@@ -67,18 +71,27 @@ impl Window for SplitSelect<'_> {
         frame.render_stateful_widget(list, layout[1], &mut self.list_state);
     }
 
-    fn handle_input(&mut self, cmd: LocalCommand) {
+    fn handle_input(&mut self, cmd: LocalCommand) -> Option<EditorCommand> {
         match cmd {
             LocalCommand::MoveLocalCursor { dx: _, dy } => {
                 self.list_state.jump_buttons(-dy);
+                None
             },
 
             LocalCommand::Confirm => {
-                let i = self.list_state.get_hovered();
-                self.list_state.set_selected(i);
-            }
+                let button_index = self.list_state.get_hovered();
+                if button_index.is_none() { return None; }
+
+                Some(EditorCommand::OpenWindow {
+                    display: WindowPaneType::Direction { direction: self.direction },
+                    window: match button_index.unwrap() {
+                        0 => Box::new(PianoRollState::new()),
+                        _ => panic!("No Window type"),
+                    }
+                })
+            },
             
-            _ => (),
+            // _ => (),
         }
     }
 }
