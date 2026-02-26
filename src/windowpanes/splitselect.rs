@@ -1,17 +1,18 @@
-use crate::widgets::pianoroll::PianoRollState;
-use crate::window::{Window, WindowPaneType};
+use crate::windowpanes::{
+    pianoroll::PianoRollState,
+    window::{Window, WindowPaneType},
+};
+
 use crate::input::{EditorCommand, LocalCommand};
-use crate::widgets::theme::UIStyle;
+use crate::theme::UIStyle;
 use crate::widgets::buttonlist::{ButtonList, ButtonListState, Button};
 
-use ratatui::style::{Modifier, Styled};
-use ratatui::widgets::Paragraph;
 use ratatui::{
     Frame,
     layout::{Rect, Direction, Layout, Constraint},
-    style::{Style, Color},
+    style::{Style, Modifier, Color},
     text::Line,
-    widgets::Clear,
+    widgets::{Clear,Paragraph},
 };
 
 pub struct SplitSelect<'a> {

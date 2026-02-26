@@ -4,8 +4,10 @@ use ratatui::crossterm::event::KeyCode;
 use ratatui::layout::Direction;
 
 use crate::AppState;
-use crate::widgets::splitselect::SplitSelect;
-use crate::window::{Window, WindowPaneType};
+use crate::windowpanes::{
+    window::{Window, WindowPaneType},
+    splitselect::SplitSelect,
+};
 
 pub enum Mode {
     Normal,

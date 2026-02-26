@@ -3,8 +3,9 @@
 
 mod app;
 mod input;
+mod windowpanes;
 mod widgets;
-mod window;
+mod theme;
 
 use app::{App, AppState};
 use color_eyre::eyre::Result;

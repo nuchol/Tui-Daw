@@ -6,8 +6,8 @@ use ratatui::{
     widgets::{StatefulWidget}
 };
 
-use crate::{input::EditorCommand, widgets::theme::UIStyle};
-use crate::window::Window;
+use crate::{input::EditorCommand, theme::UIStyle};
+use crate::windowpanes::window::Window;
 use crate::input::LocalCommand;
 
 struct Note {

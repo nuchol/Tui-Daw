@@ -51,7 +51,7 @@
 // ⠀⠀⠤⢆⠆⠈⠉⠳⠤⣄⡀⠀⠀⠀⠙⢻⣿⣿⠿⠿⠿⢻⣿⠙⠇
 // ⠠⠤⠀⣉⣁⣢⣄⣀⣀⣤⣿⠷⠦⠤⣠⡶⠿⣟⠀⠀⠀⠀⠻⡀⠀
 // ⠀⠀⠔⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠃⠃⠉⠉⠛⠛⠿⢷⡶⠀⠀
-use crate::{widgets::theme::UIStyle, window::Window};
+use crate::{theme::UIStyle, windowpanes::window::Window};
 use crate::input::{EditorCommand, LocalCommand};
 
 use ratatui::{
@@ -89,8 +89,6 @@ const ICON: &str = r#"
 ⠠⠤⠀⣉⣁⣢⣄⣀⣀⣤⣿⠷⠦⠤⣠⡶⠿⣟⠀⠀⠀⠀⠻⡀⠀         
 ⠀⠀⠔⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠃⠃⠉⠉⠛⠛⠿⢷⡶⠀⠀         
 "#;
-
-
 
 impl Window for SplashScreen {
     fn render(

@@ -1,13 +1,16 @@
 use std::collections::HashMap;
 
 use crate::input::{EditorCommand, LocalCommand};
-
+use crate::windowpanes::splashscreen::SplashScreen;
 use ratatui::{
     layout::{ Rect, Direction, Layout, Constraint },
     Frame,
 };
 
-use crate::widgets::splashscreen::SplashScreen;
+pub trait Window {
+    fn render(&mut self, frame: &mut Frame, area: Rect, focused: bool);
+    fn handle_input(&mut self, cmd: LocalCommand) -> Option<EditorCommand>;
+}
 
 pub enum LayoutNode {
     Window(usize),
@@ -24,7 +27,6 @@ pub enum WindowPaneType {
     Popup,
     Direction { direction: Direction },
 }
-
 
 pub struct WindowManager {
     focused: Option<usize>,
@@ -189,9 +191,4 @@ impl WindowManager {
 
         None
     }
-}
-
-pub trait Window {
-    fn render(&mut self, frame: &mut Frame, area: Rect, focused: bool);
-    fn handle_input(&mut self, cmd: LocalCommand) -> Option<EditorCommand>;
 }

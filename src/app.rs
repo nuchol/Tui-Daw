@@ -1,14 +1,12 @@
+use std::time::Duration;
+
 use crate::input::{
     VimInput, InputState, Mode, CommandState,
     ResolvedCommand, EditorCommand
 };
 
-use crate::widgets::{
-    commandline::CommandLine,
-};
-
-use crate::window::{WindowManager, WindowPaneType};
-
+use crate::widgets::commandline::CommandLine;
+use crate::windowpanes::window::{WindowManager, WindowPaneType};
 use color_eyre::eyre::{Ok, Result};
 
 use ratatui::{
@@ -16,8 +14,6 @@ use ratatui::{
     crossterm::event::{self, Event, KeyEvent, KeyCode},
     layout::{ Direction, Layout, Constraint },
 };
-
-use std::time::Duration;
 
 pub struct AppState {
     pub running: bool,
