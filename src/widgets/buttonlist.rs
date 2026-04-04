@@ -48,7 +48,7 @@ impl<'a> ButtonListState<'a> {
     }
 
     pub fn set_selected(&mut self, selected: Option<usize>) {
-        self.selected = selected
+        self.selected = selected;
     }
 
     pub fn get_num_items(&self) -> usize {

@@ -1,6 +1,7 @@
 use crate::windowpanes::{
-    pianoroll::PianoRollState,
+    pianoroll::PianoRollPane,
     window::{Window, WindowPaneType},
+    windowregistry::*,
 };
 
 use crate::input::{EditorCommand, LocalCommand};
@@ -18,22 +19,33 @@ use ratatui::{
 pub struct SplitSelect<'a> {
     direction: Direction,
     list_state: ButtonListState<'a>,
+    registry: Vec<WindowRegistryEntry>,
 }
 
 impl<'a> SplitSelect<'a> {
     pub fn new(direction: Direction) -> Self {
+        let registry = get_window_registry();
         let mut buttons = Vec::new();
-        for i in 0..5 {
-            buttons.push(Button {
-                label: Line::from(format!("Button {}", i)).centered(),
-                height: 1,
-                style: Style::default(),
-            });
+        for entry in registry.iter() {
+            match entry {
+                WindowRegistryEntry::Category { name, children } => {
+
+                },
+
+                WindowRegistryEntry::Window { name, create } => {
+                    buttons.push(Button {
+                        label: Line::from(*name).centered(),
+                        height: 1,
+                        style: Style::default(),
+                    });
+                },
+            }
         }
 
         Self {
             direction, 
-            list_state: ButtonListState::new(buttons).hovered(Some(0))
+            list_state: ButtonListState::new(buttons).hovered(Some(0)),
+            registry,
         }
     }
 }
@@ -86,7 +98,7 @@ impl Window for SplitSelect<'_> {
                 Some(EditorCommand::OpenWindow {
                     display: WindowPaneType::Direction { direction: self.direction },
                     window: match button_index.unwrap() {
-                        0 => Box::new(PianoRollState::new()),
+                        0 => Box::new(PianoRollPane::new()),
                         _ => panic!("No Window type"),
                     }
                 })

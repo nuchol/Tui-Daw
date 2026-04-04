@@ -6,7 +6,6 @@ use ratatui::{
 
 use crate::{AppState, input::Mode};
 
-
 pub struct CommandLine;
 
 impl CommandLine {
