@@ -117,14 +117,14 @@ impl Window for SplashScreen {
         frame.render_widget(Paragraph::new(
             Text::from(ICON.trim_matches('\n')))
             .alignment(Alignment::Center)
-            .style(Style::default().fg(Color::White)),
+            .style(Style::default().fg(UIStyle::BASE_COLOUR)),
             chunks[0]
         );
 
         frame.render_widget(Paragraph::new(
             Text::from(TITLE.trim_matches('\n')))
             .alignment(Alignment::Center)
-            .style(Style::default().fg(Color::White)),
+            .style(Style::default().fg(UIStyle::BASE_COLOUR)),
             chunks[2]
         );
     }

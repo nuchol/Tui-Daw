@@ -1,7 +1,5 @@
 use crate::widgets::tree::{node::NodeId, state::TreeState};
 
-use super::node::{TreeNode, NodeKind};
-
 pub struct FlatNode {
     pub id: NodeId,
     pub depth: usize,

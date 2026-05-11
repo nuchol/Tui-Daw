@@ -51,6 +51,8 @@ impl App {
     }
 
     fn handle_keyevent(state: &mut AppState, key: KeyEvent) {
+        // TODO: Since escape is being pressed for more than one frame,
+        //       all popups are being popped, should be on key pressed.
         if state.windows.is_popup_active()
             && key.code == KeyCode::Esc {
             state.windows.pop_popup();

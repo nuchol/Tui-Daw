@@ -168,7 +168,6 @@ impl<T> TreeState<T> {
         Ok(())
     }
 
-
     pub fn select_next(&mut self, count: usize) {
         let flat = flatten_visible(&self);
         if flat.is_empty() {

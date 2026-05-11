@@ -3,10 +3,12 @@ use std::marker::PhantomData;
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
-    style::Style,
+    style::{Style, Stylize},
     text::{Line, Span},
     widgets::{Block, StatefulWidget, Widget},
 };
+
+use crate::theme::UIStyle;
 
 use super::{
     flatten::flatten_visible,
@@ -31,15 +33,15 @@ impl<'a, T> TreeWidget<'a, T> {
     pub fn new() -> Self {
         Self {
             block: None,
-            highlight_style: Style::default().add_modifier(
+            highlight_style: Style::reset().add_modifier(
                 ratatui::style::Modifier::REVERSED,
             ),
             base_style: Style::default(),
             branch_style: Style::default(),
             leaf_style: Style::default(),
-            collapsed_icon: "▶ ",
-            expanded_icon: "▼ ",
-            leaf_icon: "  ",
+            collapsed_icon: "",
+            expanded_icon: "",
+            leaf_icon: " ",
 
             _comiler_happy: PhantomData
         }
@@ -107,6 +109,7 @@ impl<'a, T> StatefulWidget for TreeWidget<'a, T> {
 
         let flat = flatten_visible(state);
         
+        let mut in_scope = false;
         for (i, item) in flat.iter().enumerate() {
             let node = match state.nodes.get(&item.id) {
                 Some(n) => n,
@@ -115,10 +118,22 @@ impl<'a, T> StatefulWidget for TreeWidget<'a, T> {
 
             let is_selected = state.selected() == Some(item.id);
 
-            let indent = " ".repeat(item.depth);
-            let label = node.label().to_string();
+            let mut indent = if in_scope {"│ "} else {"  "}
+                .repeat(item.depth.saturating_sub(1));
 
-            let icon = match node.kind {
+            if item.depth > 0 {
+                if item.is_last {
+                    in_scope = false;
+                    indent.push_str("└ ");
+                } else {
+                    in_scope = true;
+                    indent.push_str("│ ");
+                }
+            }
+
+            let ispan = Span::from(indent).fg(UIStyle::BASE_COLOUR);
+
+            let mut icon = match node.kind {
                 NodeKind::Leaf => self.leaf_icon.to_string(),
                 NodeKind::Branch { expanded } => if expanded {
                     self.expanded_icon.to_string()
@@ -127,6 +142,8 @@ impl<'a, T> StatefulWidget for TreeWidget<'a, T> {
                 }
             };
 
+            icon.push(' ');
+
             let row_style = if is_selected {
                 self.highlight_style
             } else {
@@ -134,10 +151,14 @@ impl<'a, T> StatefulWidget for TreeWidget<'a, T> {
                     NodeKind::Branch { .. } => self.branch_style,
                     NodeKind::Leaf => self.leaf_style,
                 };
+
                 self.base_style.patch(extra_style)
             };
 
-            let line = Line::from_iter(vec![indent, icon, label])
+            let label = Span::from(node.label())
+                .style(Style::default().fg(UIStyle::BASE_COLOUR));
+
+            let line = Line::from_iter(vec![ispan, icon.into(), label])
                 .style(row_style);
 
             let row_area = Rect {

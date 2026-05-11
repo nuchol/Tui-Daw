@@ -48,7 +48,7 @@ impl CommandLine {
             Span::raw(":"),
             Span::raw(before),
             Span::styled(
-                after.chars().next().unwrap_or(' ' ).to_string(),
+                after.chars().next().unwrap_or(' ').to_string(),
                 Style::default().add_modifier(Modifier::REVERSED),
             ),
             Span::raw(

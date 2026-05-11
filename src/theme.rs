@@ -1,5 +1,5 @@
 use ratatui::{
-    style::{Color, Modifier, Style},
+    style::{Color, Style},
     widgets::{Block, Borders, BorderType},
     text::Line,
     layout::Rect,
@@ -7,14 +7,25 @@ use ratatui::{
 
 pub struct UIStyle;
 impl UIStyle {
+    // Colours
+    pub const BASE_COLOUR: Color = Color::Gray;
+    pub const UNFOCUSED_COLOUR: Color = Color::White;
+
+    pub const MAIN_COLOUR: Color = Color::Blue;
+    pub const ACCENT_COLOUR: Color = Color::Yellow;
+
+    // Style
+    pub const BORDER_TYPE: BorderType = BorderType::Rounded;
+
     pub fn window_border(title: &str, focused: bool) -> Block<'_> {
         Block::bordered()
-            .title(Line::from(title))
+            .title(Line::from(title)
+                .style(Style::default().fg(Self::UNFOCUSED_COLOUR))
+                .centered())
             .borders(Borders::ALL)
-            .border_type(BorderType::Rounded)
-            .style(Style::default().fg(
-                if focused { Color::LightGreen } else { Color::White }
-            ))
+            .border_type(Self::BORDER_TYPE)
+            .border_style(Style::default().fg(
+                if focused { Self::MAIN_COLOUR } else { Self::UNFOCUSED_COLOUR }))
     }
 
     pub fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
