@@ -1,5 +1,5 @@
 use crate::{
-    widgets::tree::{node::NodeId, node::NodeKind, state::TreeState, treewiddget::TreeWidget},
+    widgets::tree::{node::{NodeId, NodeKind}, state::TreeState, treewiddget::TreeWidget},
     windowpanes::{
         window::{Window, WindowPaneType},
         windowregistry::*,
@@ -18,13 +18,13 @@ use ratatui::{
 
 type Creator = fn() -> Box<dyn Window>;
 
-pub struct SplitSelect {
+pub struct WindowSelect {
     tree_state: TreeState<Creator>,
-    direction: Direction,
+    pane_type: WindowPaneType,
 }
 
-impl SplitSelect {
-    pub fn new(direction: Direction) -> Self {
+impl WindowSelect {
+    pub fn new(pane_type: WindowPaneType) -> Self {
         let registry = get_window_registry();
         let mut s: TreeState<Creator> = TreeState::new();
 
@@ -42,8 +42,8 @@ impl SplitSelect {
         }
 
         Self {
-            direction, 
             tree_state: s,
+            pane_type, 
         }
     }
 
@@ -63,7 +63,7 @@ impl SplitSelect {
     }
 }
 
-impl Window for SplitSelect {
+impl Window for WindowSelect {
     fn render(&mut self, frame: &mut Frame, area: Rect, focused: bool) {
         let block = UIStyle::window_border(" New Window ", focused);
 
@@ -109,28 +109,15 @@ impl Window for SplitSelect {
             },
 
             LocalCommand::Confirm => {
-                let node_id = match self.tree_state.selected() {
-                    Some(n) => n,
-                    None => return None,
-                };
-
+                let node_id = self.tree_state.selected()?;
                 self.tree_state.toggle_expand(node_id).ok();
 
-                let node = match self.tree_state.raw_selected() {
-                    Some(n) => n,
-                    None => return None,
-                };
-
-                match node.data() {
-                    Some(func) => {
-                        Some(EditorCommand::OpenWindow {
-                            display: WindowPaneType::Direction { direction: self.direction },
-                            window: func(),
-                        })
-                    },
-
-                    None => None
-                }
+                self.tree_state.raw_selected()
+                    .and_then(|node| *node.data())
+                    .map(|func| EditorCommand::OpenWindow {
+                        display: self.pane_type,
+                        window: func(),
+                    })
             },
 
             _ => None,

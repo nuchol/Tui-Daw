@@ -23,6 +23,7 @@ pub enum LayoutNode {
     },
 }
 
+#[derive(Clone, Copy)]
 pub enum WindowPaneType {
     Popup,
     Direction { direction: Direction },
@@ -100,6 +101,12 @@ impl WindowManager {
         if let Some(node) = Self::get_focused_node(
             &mut self.layout_tree, focus
         ) {
+            if old_id == 0 {
+                *node = LayoutNode::Window(new_id);
+                self.set_focuesed(new_id);
+                return true;
+            }
+
             *node = LayoutNode::Split {
                 direction: direction,
                 ratio: 0.5,

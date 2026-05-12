@@ -16,8 +16,7 @@ impl CommandLine {
     ) {
         frame.render_widget(Paragraph::new(
             match state.mode {
-                Mode::Normal => Self::normal_line(state, area.width),
-                Mode::Insert => Line::from(Self::get_mode(state)),
+                Mode::Normal | Mode::Insert => Self::normal_line(state, area.width),
                 Mode::Command => Self::command_line(state),
             }), area
         );

@@ -6,7 +6,7 @@ use ratatui::layout::Direction;
 use crate::AppState;
 use crate::windowpanes::{
     window::{Window, WindowPaneType},
-    splitselect::SplitSelect,
+    windowselect::WindowSelect,
 };
 
 pub enum Mode {
@@ -321,14 +321,27 @@ fn resolve_command(
         "vsplit" => Some(ResolvedCommand::Editor(
             EditorCommand::OpenWindow { 
                 display: WindowPaneType::Popup,
-                window: Box::new(SplitSelect::new(Direction::Horizontal))
+                window: Box::new(WindowSelect::new(
+                    WindowPaneType::Direction { direction: Direction::Horizontal }
+                ))
             }
         )),
 
         "hsplit" => Some(ResolvedCommand::Editor(
             EditorCommand::OpenWindow { 
                 display: WindowPaneType::Popup,
-                window: Box::new(SplitSelect::new(Direction::Vertical))
+                window: Box::new(WindowSelect::new(
+                    WindowPaneType::Direction { direction: Direction::Vertical }
+                ))
+            }
+        )),
+
+        "o" | "open" => Some(ResolvedCommand::Editor(
+            EditorCommand::OpenWindow { 
+                display: WindowPaneType::Popup,
+                window: Box::new(WindowSelect::new(
+                    WindowPaneType::Direction { direction: Direction::Vertical}
+                ))
             }
         )),
 
