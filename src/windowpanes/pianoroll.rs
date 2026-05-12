@@ -42,7 +42,7 @@ impl PianoRollPane {
 
 impl Window for PianoRollPane {
     fn render(&mut self, frame: &mut Frame, area: Rect, focused: bool) {
-        let block = UIStyle::window_border("Piano Roll", focused);
+        let block = UIStyle::window_border(" Piano Roll ", focused);
         frame.render_widget(&block, area);
 
         frame.render_stateful_widget(

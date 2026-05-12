@@ -51,7 +51,7 @@ pub struct TreeNode<T> {
     pub(super) children: Vec<NodeId>,
 
     // The caller's domain data associated with this node
-    pub(super) data: T,
+    pub(super) data: Option<T>,
 }
 
 impl<T> TreeNode<T> {
@@ -71,11 +71,11 @@ impl<T> TreeNode<T> {
         &self.children
     }
  
-    pub fn data(&self) -> &T {
+    pub fn data(&self) -> &Option<T> {
         &self.data
     }
  
-    pub fn data_mut(&mut self) -> &mut T {
+    pub fn data_mut(&mut self) -> &mut Option<T> {
         &mut self.data
     }
  

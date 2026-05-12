@@ -1,9 +1,10 @@
 use crate::{
-    widgets::tree::{node::NodeKind, state::TreeState, treewiddget::TreeWidget},
+    widgets::tree::{node::NodeId, node::NodeKind, state::TreeState, treewiddget::TreeWidget},
     windowpanes::{
-    window::Window,
-    windowregistry::*,
-}};
+        window::{Window, WindowPaneType},
+        windowregistry::*,
+    }
+};
 
 use crate::input::{EditorCommand, LocalCommand};
 use crate::theme::UIStyle;
@@ -15,47 +16,49 @@ use ratatui::{
     widgets::{Clear, Paragraph},
 };
 
+type Creator = fn() -> Box<dyn Window>;
+
 pub struct SplitSelect {
-    tree_state: TreeState<()>,
-    registry: Vec<WindowRegistryEntry>,
+    tree_state: TreeState<Creator>,
     direction: Direction,
 }
 
 impl SplitSelect {
     pub fn new(direction: Direction) -> Self {
         let registry = get_window_registry();
-        // let mut buttons = Vec::new();
-        // for entry in registry.iter() {
-        //     match entry {
-        //         WindowRegistryEntry::Category { name, children } => {
-        //
-        //         },
-        //
-        //         WindowRegistryEntry::Window { name, create } => {
-        //             buttons.push(Button {
-        //                 label: Line::from(*name).centered(),
-        //                 height: 1,
-        //                 style: Style::default(),
-        //             });
-        //         },
-        //     }
-        // }
-        let mut s: TreeState<()> = TreeState::new();
-        let root_a =
-            s.add_root("root_a", (), NodeKind::Branch { expanded: true });
-        let child_a1 =
-            s.add_child(root_a, "child_a1", (), NodeKind::Leaf).unwrap();
-        let child_a2 = s
-            .add_child(root_a, "child_a2", (), NodeKind::Branch { expanded: false })
-            .unwrap();
-        let grandchild =
-            s.add_child(child_a2, "grandchild", (), NodeKind::Leaf).unwrap();
-        let root_b = s.add_root("root_b", (), NodeKind::Leaf);
+        let mut s: TreeState<Creator> = TreeState::new();
+
+        for entry in registry.iter() {
+            match entry {
+                WindowRegistryEntry::Category { name, children } => {
+                    let root = s.add_root(*name, None, NodeKind::Branch { expanded: true });
+                    Self::create_window_tree(root, children, &mut s);
+                },
+
+                WindowRegistryEntry::Window { name, create } => {
+                    s.add_root(*name, Some(*create), NodeKind::Branch { expanded: true });
+                },
+            }
+        }
 
         Self {
             direction, 
             tree_state: s,
-            registry,
+        }
+    }
+
+    fn create_window_tree(parent: NodeId, roots: &Vec<WindowRegistryEntry>, s: &mut TreeState<Creator>) {
+        for entry in roots.iter() {
+            match entry {
+                WindowRegistryEntry::Category { name, children } => {
+                    let root = s.add_child(parent, *name, None, NodeKind::Branch { expanded: false }).unwrap();
+                    Self::create_window_tree(root, children, s);
+                },
+
+                WindowRegistryEntry::Window { name, create } => {
+                    let _ = s.add_child(parent, *name, Some(*create), NodeKind::Leaf);
+                },
+            }
         }
     }
 }
@@ -106,25 +109,28 @@ impl Window for SplitSelect {
             },
 
             LocalCommand::Confirm => {
-                let node = match self.tree_state.selected() {
+                let node_id = match self.tree_state.selected() {
                     Some(n) => n,
                     None => return None,
                 };
 
-                self.tree_state.toggle_expand(node).ok();
+                self.tree_state.toggle_expand(node_id).ok();
 
-                // let button_index = self.list_state.get_hovered();
-                // if button_index.is_none() { return None; }
-                //
-                // Some(EditorCommand::OpenWindow {
-                //     display: WindowPaneType::Direction { direction: self.direction },
-                //     window: match button_index.unwrap() {
-                //         0 => Box::new(PianoRollPane::new()),
-                //         _ => panic!("No Window type"),
-                //     }
-                // })
+                let node = match self.tree_state.raw_selected() {
+                    Some(n) => n,
+                    None => return None,
+                };
 
-                None
+                match node.data() {
+                    Some(func) => {
+                        Some(EditorCommand::OpenWindow {
+                            display: WindowPaneType::Direction { direction: self.direction },
+                            window: func(),
+                        })
+                    },
+
+                    None => None
+                }
             },
 
             _ => None,

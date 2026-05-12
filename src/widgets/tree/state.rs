@@ -40,7 +40,7 @@ impl<T> TreeState<T> {
     pub fn add_root(
         &mut self,
         label: impl Into<String>,
-        data: T,
+        data: Option<T>,
         kind: NodeKind
     ) -> NodeId {
         let id = self.new_id();
@@ -63,7 +63,7 @@ impl<T> TreeState<T> {
         &mut self,
         parent_id: NodeId,
         label: impl Into<String>,
-        data: T,
+        data: Option<T>,
         kind: NodeKind,
     ) -> Result<NodeId, Error> {
         match self.nodes.get(&parent_id) {
@@ -222,6 +222,13 @@ impl<T> TreeState<T> {
 
         self.selected = Some(id);
         Ok(())
+    }
+
+    pub fn raw_selected(&self) -> Option<&TreeNode<T>> {
+        match self.selected {
+            Some(n) => self.nodes.get(&n),
+            None => None
+        }
     }
 
     pub fn clear_selection(&mut self) {

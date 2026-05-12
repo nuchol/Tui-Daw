@@ -20,7 +20,7 @@ impl UIStyle {
     pub fn window_border(title: &str, focused: bool) -> Block<'_> {
         Block::bordered()
             .title(Line::from(title)
-                .style(Style::default().fg(Self::UNFOCUSED_COLOUR))
+                // .style(Style::default().fg(Self::UNFOCUSED_COLOUR))
                 .centered())
             .borders(Borders::ALL)
             .border_type(Self::BORDER_TYPE)
