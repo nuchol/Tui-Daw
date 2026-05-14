@@ -1,10 +1,12 @@
 use ratatui::{
-    Frame, layout::Rect, widgets::Paragraph,
+    Frame,
+    layout::Rect,
+    style::{Modifier, Style},
     text::{Line, Span},
-    style::{Style, Modifier},
+    widgets::Paragraph
 };
 
-use crate::{AppState, input::Mode};
+use crate::{AppState, input::Mode, log, theme::UIStyle};
 
 pub struct CommandLine;
 
@@ -14,36 +16,46 @@ impl CommandLine {
         area: Rect,
         state: &AppState,
     ) {
+
         frame.render_widget(Paragraph::new(
-            match state.mode {
-                Mode::Normal | Mode::Insert => Self::normal_line(state, area.width),
-                Mode::Command => Self::command_line(state),
-            }), area
-        );
+            Self::format_line(state, area.width)),
+            area);
     }
 
-    fn normal_line(state: &AppState, width: u16) -> Line<'_> {
-        let left = Self::get_mode(state);
+    fn format_line(state: &AppState, width: u16) -> Line<'_> {
+        let mode = Self::get_mode(state);
+
+        let content = match state.mode {
+            Mode::Normal | Mode::Insert => vec![match log::current() {
+                Some((msg, level)) => Self::get_log(msg, level),
+                None => Span::default(),
+            }],
+
+            Mode::Command => Self::command_line(state),
+        };
+
         let right = state.input_state.display();
-        let spacing = left.len() + right.len();
-        
-        Line::from(vec![
-            Span::styled(left,
-                Style::default().add_modifier(Modifier::BOLD),
-            ),
-            Span::raw(" ".repeat((width as usize).saturating_sub(spacing))),
-            Span::raw(right),
-        ])
+
+        let content_len: usize = content.iter().map(|s| s.content.len()).sum();
+        let spacing = mode.content.len() + content_len + right.len();
+
+        let mut spans = vec![mode];
+        spans.push(Span::raw(" "));
+        spans.extend(content);
+        spans.push(Span::raw(" ".repeat((width as usize).saturating_sub(spacing))));
+        spans.push(Span::raw(right));
+
+        Line::from(spans)
     }
 
-    fn command_line(state: &AppState) -> Line<'_> {
+    fn command_line(state: &AppState) -> Vec<Span<'_>> {
         let cmd = &state.command_state;
 
         let cursor = cmd.cursor.min(cmd.buffer.len());
 
         let (before, after) = cmd.buffer.split_at(cursor);
 
-        Line::from(vec![
+        vec![
             Span::raw(":"),
             Span::raw(before),
             Span::styled(
@@ -53,13 +65,22 @@ impl CommandLine {
             Span::raw(
                 after.chars().skip(1).collect::<String>()
             ),
-        ])
+        ]
     }
 
-    fn get_mode(state: &AppState) -> String {
-        format!(
-            "-- {} --",
-            state.mode.to_string().to_uppercase()
-        )
+    fn get_log(msg: String, level: log::LogLevel) -> Span<'static> {
+        Span::styled(msg, Style::default()
+            .fg(UIStyle::ERROR_COLOUR)
+            .add_modifier(Modifier::BOLD)
+            .add_modifier(Modifier::ITALIC))
+    }
+
+    fn get_mode(state: &AppState) -> Span<'_> {
+        Span::styled(format!(" {} ",
+            state.mode.to_string().to_uppercase()),
+            Style::default()
+                .fg(UIStyle::MAIN_COLOUR)
+                .add_modifier(Modifier::BOLD)
+                .add_modifier(Modifier::REVERSED))
     }
 }

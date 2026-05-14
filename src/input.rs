@@ -3,7 +3,7 @@ use std::fmt;
 use ratatui::crossterm::event::KeyCode;
 use ratatui::layout::Direction;
 
-use crate::AppState;
+use crate::{AppState, log};
 use crate::windowpanes::{
     window::{Window, WindowPaneType},
     windowselect::WindowSelect,
@@ -76,6 +76,7 @@ pub enum EditorCommand {
     Solo { count: usize, motion: Motion },
     Bpm { bpm: u32 },
     OpenWindow { display: WindowPaneType, window: Box<dyn Window> },
+    Theme { theme: String },
     Quit,
 }
 
@@ -313,7 +314,8 @@ fn resolve_operation(
 fn resolve_command(
     command: String,
 ) -> Option<ResolvedCommand> {
-    match command.as_str() {
+    let tokens: Vec<&str> = command.split(' ').collect();
+    match tokens[0] {
         "q" | "quit" => Some(ResolvedCommand::Editor(EditorCommand::Quit)),
 
         // We want to split accross the opposite direction since
@@ -336,16 +338,16 @@ fn resolve_command(
             }
         )),
 
-        "o" | "open" => Some(ResolvedCommand::Editor(
-            EditorCommand::OpenWindow { 
-                display: WindowPaneType::Popup,
-                window: Box::new(WindowSelect::new(
-                    WindowPaneType::Direction { direction: Direction::Vertical}
-                ))
-            }
+        "theme" => Some(ResolvedCommand::Editor(
+            EditorCommand::Theme { theme: tokens[1].to_string() }
         )),
 
-        _ => None,
+        _ => {
+            log::log(
+                format!("Not a recognised command: {}", command.as_str()),
+                log::LogLevel::WARN);
+            None
+        },
     }
 }
 

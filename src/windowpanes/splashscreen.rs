@@ -56,8 +56,8 @@ use crate::input::{EditorCommand, LocalCommand};
 
 use ratatui::{
     Frame,
-    layout::{ Rect, Direction, Layout, Constraint, Alignment },
-    style::{Color, Style},
+    layout::{Rect, Direction, Layout, Constraint, Alignment},
+    style::Style,
     text::Text,
     widgets::{Paragraph}
 

@@ -5,6 +5,8 @@ use crate::input::{
     ResolvedCommand, EditorCommand
 };
 
+use crate::log;
+use crate::theme::{ResolvedTheme, ThemeRegistry};
 use crate::widgets::commandline::CommandLine;
 use crate::windowpanes::window::{WindowManager, WindowPaneType};
 use color_eyre::eyre::{Ok, Result};
@@ -20,17 +22,28 @@ pub struct AppState {
     pub mode: Mode,
     pub input_state: InputState,
     pub command_state: CommandState,
-    pub windows: WindowManager
+    pub windows: WindowManager,
+    pub theme_registry: ThemeRegistry,
+    pub theme: ResolvedTheme,
 }
 
 impl AppState {
     pub fn new() -> Self {
+        // TODO: Add a default theme and fall back to it if no theme file is found
+        let src = std::fs::read_to_string("./res/themes/catpuccin.toml")
+            .expect("Could not read theme file");
+        let theme_registry = ThemeRegistry::from_toml(&src)
+            .expect("Could not parse theme file");
+        let theme = ResolvedTheme::from_registry(&theme_registry);
+
         Self {
             running: true,
             mode: Mode::Normal,
             input_state: InputState::new(),
             command_state: CommandState::default(),
             windows: WindowManager::new(),
+            theme_registry,
+            theme,
         }
     }
 }
@@ -84,6 +97,9 @@ impl App {
                         state.windows.split_current_window(direction, window);
                     }
                 }
+            }
+            EditorCommand::Theme { theme } => {
+                log::log(format!("TODO: Set theme to \"{}\"", theme), log::LogLevel::INFO);
             }
             
             _ => ()
