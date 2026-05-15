@@ -345,7 +345,7 @@ fn resolve_command(
         _ => {
             log::log(
                 format!("Not a recognised command: {}", command.as_str()),
-                log::LogLevel::WARN);
+                log::LogLevel::ERROR);
             None
         },
     }

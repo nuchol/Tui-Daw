@@ -13,7 +13,13 @@ use ratatui::{
     EnumCount, EnumIter, EnumString, Display)]
 pub enum ThemeKey {
     // Global
-    Normal, NormalFloat, StatusLine, StatusLineNC,
+    Normal, NormalFloat, StatusLine, StatusLineNC, ErrorMsg, WarnMsg, Cursor,
+    // Float
+    FloatBoarder, FloatBoarderNC, FloatTitle, FloatTitleNC, FloatFooter,
+    // Modes
+    ModeNormal, ModeInsert, ModeCommand,
+    // File Tree
+    FileTreeDir, FileTreeWindow,
     // Piano roll
     PianoRollBackground, PianoRollNote, PianoRollNoteSelected,
     PianoRollBlackKey, PianoRollWhiteKey,
@@ -39,17 +45,18 @@ impl StyleDef {
 #[derive(Deserialize)]
 struct ThemeFile {
     palette: HashMap<String, String>,
-    group:   HashMap<String, RawGroup>,
+    group: HashMap<String, RawGroup>,
 }
 
 #[derive(Deserialize, Default)]
 struct RawGroup {
-    fg:     Option<String>,
-    bg:     Option<String>,
-    bold:   Option<bool>,
-    italic: Option<bool>,
-    dim:    Option<bool>,
-    link:   Option<String>,
+    fg:         Option<String>,
+    bg:         Option<String>,
+    bold:       Option<bool>,
+    italic:     Option<bool>,
+    dim:        Option<bool>,
+    reversed:   Option<bool>,
+    link:       Option<String>,
 }
 
 pub struct ThemeRegistry {
@@ -73,9 +80,10 @@ impl ThemeRegistry {
             let bg = raw.bg.as_deref().map(|v| Self::parse_color(v, &file.palette)).transpose()?;
 
             let mut modifiers = Modifier::empty();
-            if raw.bold   == Some(true) { modifiers |= Modifier::BOLD; }
-            if raw.italic == Some(true) { modifiers |= Modifier::ITALIC; }
-            if raw.dim    == Some(true) { modifiers |= Modifier::DIM; }
+            if raw.bold     == Some(true) { modifiers |= Modifier::BOLD; }
+            if raw.italic   == Some(true) { modifiers |= Modifier::ITALIC; }
+            if raw.dim      == Some(true) { modifiers |= Modifier::DIM; }
+            if raw.reversed == Some(true) { modifiers |= Modifier::REVERSED; }
 
             let link = raw.link.as_deref()
                 .map(|n| ThemeKey::from_str(n).map_err(|_| format!("unknown link target: {n}")))
@@ -146,26 +154,23 @@ impl ResolvedTheme {
     }
 }
 
+#[deprecated]
 pub struct UIStyle;
 impl UIStyle {
-    // Colours
-    pub const BASE_COLOUR: Color = Color::Gray;
-    pub const UNFOCUSED_COLOUR: Color = Color::White;
-
-    pub const MAIN_COLOUR: Color = Color::Blue;
-    pub const ACCENT_COLOUR: Color = Color::Yellow;
-    pub const ERROR_COLOUR:  Color = Color::Red;
-
-    // Style
     pub const BORDER_TYPE: BorderType = BorderType::Rounded;
 
-    pub fn window_border(title: &str, focused: bool) -> Block<'_> {
+    pub fn window_border<'a>(title: &'a str, focused: bool, theme: &ResolvedTheme) -> Block<'a> {
+        let style = if focused {
+            theme.get(ThemeKey::FloatBoarder)
+        } else {
+            theme.get(ThemeKey::FloatBoarderNC)
+        };
+
         Block::bordered()
-            .title(Line::from(title).centered())
+            .title(Line::styled(title, style).centered())
             .borders(Borders::ALL)
             .border_type(Self::BORDER_TYPE)
-            .border_style(Style::default().fg(
-                if focused { Self::MAIN_COLOUR } else { Self::UNFOCUSED_COLOUR }))
+            .border_style(style)
     }
 
     pub fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
@@ -173,7 +178,7 @@ impl UIStyle {
         let height = (area.height * percent_y) / 100;
         let x = area.x + (area.width - width) / 2;
         let y = area.y + (area.height - height) / 2;
-        
+
         Rect { x, y, width, height }
     }
 }

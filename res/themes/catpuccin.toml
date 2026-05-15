@@ -30,7 +30,48 @@
 [group.Normal]
     fg = "p:text"
 
+[group.Cursor]
+    reversed = true
+
 [group.ErrorMsg]
     fg = "p:red"
     bold = true
     italic = true
+
+[group.WarnMsg]
+    fg = "p:peach"
+    bold = true
+    italic = true
+
+[group.ModeNormal]
+    fg = "p:mantle"
+    bg = "p:blue"
+    bold = true
+
+[group.ModeCommand]
+    fg = "p:mantle"
+    bg = "p:peach"
+    bold = true
+
+[group.ModeInsert]
+    fg = "p:mantle"
+    bg = "p:green"
+    bold = true
+
+[group.FloatBoarder]
+    fg = "p:blue"
+
+[group.FloatBoarderNC]
+    fg = "p:subtext0"
+
+[group.FloatTitle]
+    link = "FloatBoarder"
+
+[group.FloatTitleNC]
+    link = "FloatBoarderNC"
+
+[group.FileTreeDir]
+    fg = "p:blue"
+
+[group.FileTreeWindow]
+    fg = "p:yellow"

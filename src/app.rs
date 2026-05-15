@@ -6,7 +6,7 @@ use crate::input::{
 };
 
 use crate::log;
-use crate::theme::{ResolvedTheme, ThemeRegistry};
+use crate::theme::{ResolvedTheme, ThemeKey, ThemeRegistry};
 use crate::widgets::commandline::CommandLine;
 use crate::windowpanes::window::{WindowManager, WindowPaneType};
 use color_eyre::eyre::{Ok, Result};
@@ -15,6 +15,7 @@ use ratatui::{
     DefaultTerminal, Frame,
     crossterm::event::{self, Event, KeyEvent, KeyCode},
     layout::{ Direction, Layout, Constraint },
+    style::Style,
 };
 
 pub struct AppState {
@@ -45,6 +46,10 @@ impl AppState {
             theme_registry,
             theme,
         }
+    }
+
+    pub fn get_style(&self, key: ThemeKey) -> Style {
+        self.theme.get(key)
     }
 }
 
@@ -117,6 +122,6 @@ impl App {
 
         CommandLine::render(frame, base_layout[1], state);
 
-        state.windows.render_layout(frame, base_layout[0]);
+        state.windows.render_layout(frame, base_layout[0], &state.theme);
     }
 }

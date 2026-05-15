@@ -1,5 +1,10 @@
 use crate::{
-    widgets::tree::{node::{NodeId, NodeKind}, state::TreeState, treewiddget::TreeWidget},
+    theme::{ResolvedTheme, ThemeKey},
+    widgets::tree::{
+        node::{NodeId, NodeKind},
+        state::TreeState,
+        treewiddget::TreeWidget,
+    },
     windowpanes::{
         window::{Window, WindowPaneType},
         windowregistry::*,
@@ -7,13 +12,11 @@ use crate::{
 };
 
 use crate::input::{EditorCommand, LocalCommand};
-use crate::theme::UIStyle;
 
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::Style,
-    widgets::{Clear, Paragraph},
+    widgets::Paragraph,
 };
 
 type Creator = fn() -> Box<dyn Window>;
@@ -64,12 +67,15 @@ impl WindowSelect {
 }
 
 impl Window for WindowSelect {
-    fn render(&mut self, frame: &mut Frame, area: Rect, focused: bool) {
-        let block = UIStyle::window_border(" New Window ", focused);
-
-        let list_area = UIStyle::centered_rect(50, 50, area);
-        frame.render_widget(Clear, block.inner(list_area));
-
+    fn title(&self) -> &str {
+        " New Window "
+    }
+    fn render(&mut self,
+        frame: &mut Frame,
+        area: Rect,
+        focused: bool,
+        theme: &ResolvedTheme
+    ) {
         let layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints(vec![
@@ -77,18 +83,17 @@ impl Window for WindowSelect {
                 Constraint::Percentage(80),
             ])
             .margin(1)
-            .split(block.inner(list_area));
+            .split(area);
 
-        frame.render_widget(&block, list_area);
         frame.render_widget(Paragraph::new("Lorum Ipsum")
             .centered(), layout[0]);
         frame.render_stateful_widget(
-            TreeWidget::new()
+            TreeWidget::new(theme)
                 .collapsed_icon("")
                 .expanded_icon("")
                 .leaf_icon("󰎄")
-                .branch_style(Style::default().fg(UIStyle::MAIN_COLOUR))
-                .leaf_style(Style::default().fg(UIStyle::ACCENT_COLOUR)),
+                .branch_style(theme.get(ThemeKey::FileTreeDir))
+                .leaf_style(theme.get(ThemeKey::FileTreeWindow)),
             layout[1], &mut self.tree_state);
 
         // "", "", "󰉖", "󰷏",

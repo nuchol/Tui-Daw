@@ -51,13 +51,12 @@
 // ⠀⠀⠤⢆⠆⠈⠉⠳⠤⣄⡀⠀⠀⠀⠙⢻⣿⣿⠿⠿⠿⢻⣿⠙⠇
 // ⠠⠤⠀⣉⣁⣢⣄⣀⣀⣤⣿⠷⠦⠤⣠⡶⠿⣟⠀⠀⠀⠀⠻⡀⠀
 // ⠀⠀⠔⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠃⠃⠉⠉⠛⠛⠿⢷⡶⠀⠀
-use crate::{theme::UIStyle, windowpanes::window::Window};
+use crate::{theme::{ResolvedTheme, ThemeKey}, windowpanes::window::Window};
 use crate::input::{EditorCommand, LocalCommand};
 
 use ratatui::{
     Frame,
     layout::{Rect, Direction, Layout, Constraint, Alignment},
-    style::Style,
     text::Text,
     widgets::{Paragraph}
 
@@ -91,17 +90,20 @@ const ICON: &str = r#"
 "#;
 
 impl Window for SplashScreen {
+    fn title(&self) -> &str {
+        ""
+    }
+
     fn render(
         &mut self,
         frame: &mut Frame,
         area: Rect,
-        focused: bool
+        focused: bool,
+        theme: &ResolvedTheme,
     ) {
         let icon_lines = ICON.trim_matches('\n').lines().count();
         let title_lines = TITLE.trim_matches('\n').lines().count();
         let spacing = 2;
-
-        let block = UIStyle::window_border("", focused);
 
         let chunks = Layout::default()
             .direction(Direction::Vertical)
@@ -110,21 +112,19 @@ impl Window for SplashScreen {
                 Constraint::Length(spacing),
                 Constraint::Length(title_lines as u16),
             ])
-            .split(block.inner(area));
-
-        frame.render_widget(&block, area);
+            .split(area);
 
         frame.render_widget(Paragraph::new(
             Text::from(ICON.trim_matches('\n')))
             .alignment(Alignment::Center)
-            .style(Style::default().fg(UIStyle::BASE_COLOUR)),
+            .style(theme.get(ThemeKey::Normal)),
             chunks[0]
         );
 
         frame.render_widget(Paragraph::new(
             Text::from(TITLE.trim_matches('\n')))
             .alignment(Alignment::Center)
-            .style(Style::default().fg(UIStyle::BASE_COLOUR)),
+            .style(theme.get(ThemeKey::Normal)),
             chunks[2]
         );
     }

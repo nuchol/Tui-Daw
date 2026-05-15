@@ -1,14 +1,22 @@
 use std::collections::HashMap;
 
 use crate::input::{EditorCommand, LocalCommand};
+use crate::theme::{ResolvedTheme, UIStyle};
 use crate::windowpanes::splashscreen::SplashScreen;
+use ratatui::widgets::Clear;
 use ratatui::{
     layout::{ Rect, Direction, Layout, Constraint },
     Frame,
 };
 
 pub trait Window {
-    fn render(&mut self, frame: &mut Frame, area: Rect, focused: bool);
+    fn title(&self) -> &str;
+    fn render(&mut self,
+        frame: &mut Frame,
+        area: Rect,
+        focused: bool,
+        theme: &ResolvedTheme
+    );
     fn handle_input(&mut self, cmd: LocalCommand) -> Option<EditorCommand>;
 }
 
@@ -123,22 +131,30 @@ impl WindowManager {
         false
     }
 
-    pub fn render_layout(&mut self, frame: &mut Frame, area: Rect) {
-        let window_id = self.popup_stack.last();
-        let focused = window_id.copied().or(self.focused);
+    pub fn render_layout(&mut self, frame: &mut Frame, area: Rect, theme: &ResolvedTheme) {
+        let popup_id = self.popup_stack.last().copied();
+        let focused = popup_id.or(self.focused);
 
+        frame.render_widget(Clear, area);
         Self::do_render_layout(
             frame,
             &self.layout_tree,
             area,
             &mut self.windows,
             focused,
+            theme,
         );
 
         if self.popup_stack.is_empty() { return; }
 
-        let window = self.windows.get_mut(window_id.unwrap()).unwrap();
-        window.render(frame, area, true);
+        let popup = self.windows.get_mut(&popup_id.unwrap()).unwrap();
+
+        let popup_area = UIStyle::centered_rect(50, 50, area);
+        let block = UIStyle::window_border(popup.title(), focused == popup_id, theme);
+
+        frame.render_widget(Clear, popup_area);
+        frame.render_widget(&block, popup_area);
+        popup.render(frame, block.inner(popup_area), true, theme);
     }
 
     fn do_render_layout(
@@ -147,13 +163,18 @@ impl WindowManager {
         area: Rect,
         windows: &mut HashMap<usize, Box<dyn Window>>,
         focused: Option<usize>,
+        theme: &ResolvedTheme,
     ) {
         match node {
             LayoutNode::Window(id) => {
                 let window = windows.get_mut(&id).unwrap();
                 let is_focused = focused == Some(*id);
 
-                window.render(frame, area, is_focused);
+                let block = UIStyle::window_border(window.title(), is_focused, theme);
+
+                frame.render_widget(&block, area);
+
+                window.render(frame, block.inner(area), is_focused, theme);
             },
 
             LayoutNode::Split { direction, ratio, first, second } => {
@@ -165,8 +186,8 @@ impl WindowManager {
                     ])
                     .split(area);
 
-                Self::do_render_layout(frame, &first, layout[0], windows, focused);
-                Self::do_render_layout(frame, &second, layout[1], windows, focused);
+                Self::do_render_layout(frame, &first,  layout[0], windows, focused, theme);
+                Self::do_render_layout(frame, &second, layout[1], windows, focused, theme);
             }
         }
     }

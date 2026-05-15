@@ -3,12 +3,12 @@ use std::marker::PhantomData;
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
-    style::{Style, Stylize},
+    style::{Style},
     text::{Line, Span},
     widgets::{Block, StatefulWidget, Widget},
 };
 
-use crate::theme::UIStyle;
+use crate::theme::{ResolvedTheme, ThemeKey};
 
 use super::{
     flatten::flatten_visible,
@@ -30,15 +30,13 @@ pub struct TreeWidget<'a, T> {
 }
 
 impl<'a, T> TreeWidget<'a, T> {
-    pub fn new() -> Self {
+    pub fn new(theme: &ResolvedTheme) -> Self {
         Self {
             block: None,
-            highlight_style: Style::reset().add_modifier(
-                ratatui::style::Modifier::REVERSED,
-            ),
-            base_style: Style::default(),
-            branch_style: Style::default(),
-            leaf_style: Style::default(),
+            highlight_style: theme.get(ThemeKey::Cursor),
+            base_style: theme.get(ThemeKey::Normal),
+            branch_style: theme.get(ThemeKey::Normal),
+            leaf_style: theme.get(ThemeKey::Normal),
             collapsed_icon: "",
             expanded_icon: "",
             leaf_icon: " ",
@@ -131,7 +129,7 @@ impl<'a, T> StatefulWidget for TreeWidget<'a, T> {
                 }
             }
 
-            let ispan = Span::from(indent).fg(UIStyle::BASE_COLOUR);
+            let ispan = Span::styled(indent, self.base_style);
 
             let mut icon = match node.kind {
                 NodeKind::Leaf => self.leaf_icon.to_string(),
@@ -155,9 +153,7 @@ impl<'a, T> StatefulWidget for TreeWidget<'a, T> {
                 self.base_style.patch(extra_style)
             };
 
-            let label = Span::from(node.label())
-                .style(Style::default().fg(UIStyle::BASE_COLOUR));
-
+            let label = Span::styled(node.label(), self.base_style);
             let line = Line::from_iter(vec![ispan, icon.into(), label])
                 .style(row_style);
 
