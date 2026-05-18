@@ -31,7 +31,9 @@
     fg = "p:text"
 
 [group.Cursor]
-    reversed = true
+    fg = "p:mantle"
+    bg = "p:text"
+    bold = true
 
 [group.ErrorMsg]
     fg = "p:red"
@@ -75,3 +77,36 @@
 
 [group.FileTreeWindow]
     fg = "p:yellow"
+
+[group.PianoRollWhiteKey]
+    fg = "p:mantle"
+    bg = "p:text"
+    bold = true
+    italic = true
+
+[group.PianoRollBlackKey]
+    fg = "p:text"
+    bg = "p:surface0"
+    bold = true
+    italic = true
+
+[group.PianoRollWhiteKeyPressed]
+    fg = "p:mantle"
+    bg = "p:peach"
+    bold = true
+    italic = true
+
+[group.PianoRollBlackKeyPressed]
+    link = "PianoRollWhiteKeyPressed"
+
+# [group.PianoRollBlackKeyPressed]
+#     fg = "p:text"
+#     bg = "p:mantle"
+#     bold = true
+#     italic = true
+
+# [group.PianoRollWhiteKeyPressed]
+#     fg = "p:surface0"
+#     bg = "p:subtext0"
+#     bold = true
+#     italic = true

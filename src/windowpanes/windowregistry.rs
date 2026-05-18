@@ -1,5 +1,5 @@
 use crate::windowpanes::window::Window;
-use crate::windowpanes::pianoroll::PianoRollPane;
+use crate::windowpanes::pianoroll::PianoRoll;
 
 pub enum WindowRegistryEntry {
     Category {
@@ -20,7 +20,7 @@ pub fn get_window_registry() -> Vec<WindowRegistryEntry> {
             children: vec![
                 WindowRegistryEntry::Window {
                     name: "Piano Roll",
-                    create: || Box::new(PianoRollPane::new()),
+                    create: || Box::new(PianoRoll::new()),
                 },
             ],
         },

@@ -129,33 +129,35 @@ impl<'a, T> StatefulWidget for TreeWidget<'a, T> {
                 }
             }
 
-            let ispan = Span::styled(indent, self.base_style);
-
-            let mut icon = match node.kind {
-                NodeKind::Leaf => self.leaf_icon.to_string(),
-                NodeKind::Branch { expanded } => if expanded {
-                    self.expanded_icon.to_string()
-                } else {
-                    self.collapsed_icon.to_string()
-                }
-            };
-
-            icon.push(' ');
-
-            let row_style = if is_selected {
+            let style = if is_selected { 
                 self.highlight_style
             } else {
-                let extra_style = match node.kind() {
-                    NodeKind::Branch { .. } => self.branch_style,
-                    NodeKind::Leaf => self.leaf_style,
-                };
-
-                self.base_style.patch(extra_style)
+                self.base_style
             };
 
-            let label = Span::styled(node.label(), self.base_style);
-            let line = Line::from_iter(vec![ispan, icon.into(), label])
-                .style(row_style);
+            let icon_style = if is_selected {
+                self.highlight_style
+            } else {
+                style.patch(match node.kind() {
+                    NodeKind::Branch { .. } => self.branch_style,
+                    NodeKind::Leaf => self.leaf_style,
+                })
+            };
+
+            let ispan = Span::styled(indent, style);
+
+            let icon = Span::styled(format!("{} ", match node.kind {
+                NodeKind::Leaf => self.leaf_icon,
+                NodeKind::Branch { expanded } => if expanded {
+                    self.expanded_icon
+                } else {
+                    self.collapsed_icon
+                }
+            }), icon_style);
+
+            let label = Span::styled(node.label(), style);
+            let line = Line::from_iter(vec![ispan, icon, label])
+                .style(style);
 
             let row_area = Rect {
                 x: render_area.left(),

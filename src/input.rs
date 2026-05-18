@@ -187,7 +187,9 @@ fn handle_normal_mode(
 
         KeyCode::Char(c) if c.is_ascii_digit() => {
             let d = c.to_digit(10).unwrap() as usize;
-            state.input_state.count = state.input_state.count * 10 + d;
+            state.input_state.count = state.input_state.count
+                .saturating_mul(10).saturating_add(d);
+
             None
         }
 

@@ -23,6 +23,7 @@ pub enum ThemeKey {
     // Piano roll
     PianoRollBackground, PianoRollNote, PianoRollNoteSelected,
     PianoRollBlackKey, PianoRollWhiteKey,
+    PianoRollBlackKeyPressed, PianoRollWhiteKeyPressed,
 }
 
 #[derive(Clone, Default)]
