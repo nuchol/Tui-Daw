@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
 use crate::input::{EditorCommand, LocalCommand};
-use crate::theme::{ResolvedTheme, UIStyle};
+use crate::theme::ResolvedTheme;
 use crate::windowpanes::splashscreen::SplashScreen;
-use ratatui::widgets::Clear;
+use ratatui::widgets::{Block, Borders, Clear};
 use ratatui::{
     layout::{ Rect, Direction, Layout, Constraint },
     Frame,
@@ -149,8 +149,8 @@ impl WindowManager {
 
         let popup = self.windows.get_mut(&popup_id.unwrap()).unwrap();
 
-        let popup_area = UIStyle::centered_rect(50, 50, area);
-        let block = UIStyle::window_border(popup.title(), focused == popup_id, theme);
+        let popup_area = ResolvedTheme::centered_rect(50, 50, area);
+        let block = theme.window_border(popup.title(), focused == popup_id);
 
         frame.render_widget(Clear, popup_area);
         frame.render_widget(&block, popup_area);
@@ -170,11 +170,11 @@ impl WindowManager {
                 let window = windows.get_mut(&id).unwrap();
                 let is_focused = focused == Some(*id);
 
-                let block = UIStyle::window_border(window.title(), is_focused, theme);
-
-                frame.render_widget(&block, area);
-
-                window.render(frame, block.inner(area), is_focused, theme);
+                // let block = UIStyle::window_border(window.title(), is_focused, theme);
+                // frame.render_widget(&block, area);
+                //
+                // window.render(frame, block.inner(area), is_focused, theme);
+                window.render(frame, area, is_focused, theme);
             },
 
             LayoutNode::Split { direction, ratio, first, second } => {
@@ -182,12 +182,15 @@ impl WindowManager {
                     .direction(*direction)
                     .constraints(vec![
                         Constraint::Percentage((ratio * 100.0) as u16),
+                        Constraint::Length(1),
                         Constraint::Percentage(((1.0 - ratio) * 100.0) as u16),
                     ])
                     .split(area);
 
+                frame.render_widget(theme.divider(direction), layout[1]);
+
                 Self::do_render_layout(frame, &first,  layout[0], windows, focused, theme);
-                Self::do_render_layout(frame, &second, layout[1], windows, focused, theme);
+                Self::do_render_layout(frame, &second, layout[2], windows, focused, theme);
             }
         }
     }

@@ -31,7 +31,7 @@ pub struct AppState {
 impl AppState {
     pub fn new() -> Self {
         // TODO: Add a default theme and fall back to it if no theme file is found
-        let src = std::fs::read_to_string("./res/themes/catpuccin.toml")
+        let src = std::fs::read_to_string("./res/themes/catppuccin.toml")
             .expect("Could not read theme file");
         let theme_registry = ThemeRegistry::from_toml(&src)
             .expect("Could not parse theme file");

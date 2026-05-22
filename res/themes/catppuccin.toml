@@ -27,6 +27,15 @@
 	mantle = "#181825"
 	crust = "#11111b"
 
+# Latte colours
+    dark_red = "#d20f39"
+    dark_green = "#40a02b"
+    dark_yellow = "#df8e1d"
+    dark_blue = "#1e66f5"
+
+[options]
+    winborder = "rounded"
+
 [group.Normal]
     fg = "p:text"
 
@@ -78,6 +87,16 @@
 [group.FileTreeWindow]
     fg = "p:yellow"
 
+[group.PianoRollNote]
+    fg = "p:mantle"
+    bg = "p:green"
+    bold = true
+    italic = true
+
+[group.PianoRollNoteAccent]
+    fg = "p:dark_green"
+    bg = "p:green"
+
 [group.PianoRollWhiteKey]
     fg = "p:mantle"
     bg = "p:text"
@@ -99,14 +118,11 @@
 [group.PianoRollBlackKeyPressed]
     link = "PianoRollWhiteKeyPressed"
 
-# [group.PianoRollBlackKeyPressed]
-#     fg = "p:text"
-#     bg = "p:mantle"
-#     bold = true
-#     italic = true
+[group.PainoRollBarSeparator]
+    fg = "p:surface2"
 
-# [group.PianoRollWhiteKeyPressed]
-#     fg = "p:surface0"
-#     bg = "p:subtext0"
-#     bold = true
-#     italic = true
+[group.PainoRollBeatSeparator]
+    link = "PainoRollBarSeparator"
+
+[group.PainoRollSubDivSeparator]
+    fg = "p:surface0"

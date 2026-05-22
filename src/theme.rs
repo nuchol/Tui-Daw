@@ -3,10 +3,7 @@ use serde::Deserialize;
 use strum::{Display, EnumCount, EnumIter, EnumString, IntoEnumIterator};
 
 use ratatui::{
-    style::{Color, Style, Modifier},
-    widgets::{Block, Borders, BorderType},
-    text::Line,
-    layout::Rect,
+    layout::{Direction, Rect}, style::{Color, Modifier, Style}, text::Line, widgets::{Block, BorderType, Borders}
 };
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq,
@@ -21,9 +18,10 @@ pub enum ThemeKey {
     // File Tree
     FileTreeDir, FileTreeWindow,
     // Piano roll
-    PianoRollBackground, PianoRollNote, PianoRollNoteSelected,
+    PianoRollNote, PianoRollNoteAccent, PianoRollNoteSelected,
     PianoRollBlackKey, PianoRollWhiteKey,
     PianoRollBlackKeyPressed, PianoRollWhiteKeyPressed,
+    PainoRollBarSeparator, PainoRollBeatSeparator, PainoRollSubDivSeparator,
 }
 
 #[derive(Clone, Default)]
@@ -46,6 +44,7 @@ impl StyleDef {
 #[derive(Deserialize)]
 struct ThemeFile {
     palette: HashMap<String, String>,
+    options: HashMap<String, String>,
     group: HashMap<String, RawGroup>,
 }
 
@@ -58,6 +57,8 @@ struct RawGroup {
     dim:        Option<bool>,
     reversed:   Option<bool>,
     link:       Option<String>,
+
+    bright:     Option<bool>,
 }
 
 pub struct ThemeRegistry {
@@ -139,6 +140,8 @@ pub struct ResolvedTheme {
 }
 
 impl ResolvedTheme {
+    pub const BORDER_TYPE: BorderType = BorderType::Rounded;
+
     pub fn from_registry(reg: &ThemeRegistry) -> Self {
         let mut styles = [Style::default(); ThemeKey::COUNT];
 
@@ -153,18 +156,12 @@ impl ResolvedTheme {
     pub fn get(&self, key: ThemeKey) -> Style {
         self.styles[key as usize]
     }
-}
 
-#[deprecated]
-pub struct UIStyle;
-impl UIStyle {
-    pub const BORDER_TYPE: BorderType = BorderType::Rounded;
-
-    pub fn window_border<'a>(title: &'a str, focused: bool, theme: &ResolvedTheme) -> Block<'a> {
+    pub fn window_border<'a>(&self, title: &'a str, focused: bool) -> Block<'a> {
         let style = if focused {
-            theme.get(ThemeKey::FloatBoarder)
+            self.get(ThemeKey::FloatBoarder)
         } else {
-            theme.get(ThemeKey::FloatBoarderNC)
+            self.get(ThemeKey::FloatBoarderNC)
         };
 
         Block::bordered()
@@ -172,6 +169,12 @@ impl UIStyle {
             .borders(Borders::ALL)
             .border_type(Self::BORDER_TYPE)
             .border_style(style)
+    }
+
+    pub fn divider(&self, dir: &Direction) -> Block<'_> {
+        Block::bordered().borders(if *dir == Direction::Vertical
+            { Borders::TOP } else { Borders::LEFT })
+            .border_style(self.get(ThemeKey::FloatBoarder))
     }
 
     pub fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
