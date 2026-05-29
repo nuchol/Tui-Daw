@@ -50,12 +50,12 @@ pub enum Operator {
 
 pub enum InputAction {
     Move {
-        count: u32,
+        count: usize,
         motion: Motion,
     },
     
     Operation {
-        count: u32,
+        count: usize,
         operator: Operator,
         motion: Motion,
     },
@@ -64,13 +64,13 @@ pub enum InputAction {
 }
 
 pub enum EditorCommand {
-    Delete { count: u32, motion: Motion },
-    Yank { count: u32, motion: Motion },
-    Paste { count: u32, motion: Motion },
-    Undo { count: u32, motion: Motion },
-    Redo { count: u32, motion: Motion },
-    Mute { count: u32, motion: Motion },
-    Solo { count: u32, motion: Motion },
+    Delete { count: usize, motion: Motion },
+    Yank { count: usize, motion: Motion },
+    Paste { count: usize, motion: Motion },
+    Undo { count: usize, motion: Motion },
+    Redo { count: usize, motion: Motion },
+    Mute { count: usize, motion: Motion },
+    Solo { count: usize, motion: Motion },
     Bpm { bpm: u32 },
     OpenWindow { display: WindowPaneType, window: Box<dyn Window> },
     Theme { theme: String },
@@ -79,7 +79,6 @@ pub enum EditorCommand {
 
 pub enum LocalCommand {
     MoveLocalCursor { dx: i32, dy: i32 },
-    MoveByMotion { count: u32, motion: Motion },
     Confirm,
 }
 
@@ -111,7 +110,7 @@ impl VimInput {
 }
 
 pub struct InputState {
-    pub count: u32,
+    pub count: usize,
     pub operator: Option<Operator>,
 }
 
@@ -180,13 +179,8 @@ fn handle_normal_mode(
             None
         },
 
-        KeyCode::Char('.') => {
-            // TODO: Repeat last command
-            None
-        }
-
         KeyCode::Char(c) if c.is_ascii_digit() => {
-            let d = c.to_digit(10).unwrap();
+            let d = c.to_digit(10).unwrap() as usize;
             state.input_state.count = state.input_state.count
                 .saturating_mul(10).saturating_add(d);
 
@@ -274,24 +268,30 @@ fn resolve_action(
 }
 
 fn resolve_move(
-    count: u32,
+    count: usize,
     motion: Motion,
 ) -> Option<ResolvedCommand> {
-    let cmd = match motion {
-        Motion::Up    => LocalCommand::MoveLocalCursor { dx: 0, dy: count as i32 },
-        Motion::Down  => LocalCommand::MoveLocalCursor { dx: 0, dy: -(count as i32) },
-        Motion::Left  => LocalCommand::MoveLocalCursor { dx: -(count as i32), dy: 0 },
-        Motion::Right => LocalCommand::MoveLocalCursor { dx: count as i32, dy: 0 },
+    let mut dy = 0;
+    let mut dx = 0;
 
-        // Any motion that must be handled by window.
-        _ => LocalCommand::MoveByMotion { count, motion },
-    };
+    match motion {
+        Motion::Up    => dy = count as i32,
+        Motion::Down  => dy = -(count as i32),
+        Motion::Left  => dx = -(count as i32),
+        Motion::Right => dx = count as i32,
 
-    Some(ResolvedCommand::Local(cmd))
+        Motion::Bar         => (),
+        Motion::Beat        => (),
+        Motion::Subdivision => (),
+
+        _ => return None,
+    }
+
+    Some(ResolvedCommand::Local(LocalCommand::MoveLocalCursor { dx, dy }))
 }
 
 fn resolve_operation(
-    count: u32,
+    count: usize,
     operator: Operator,
     motion: Motion,
 ) -> Option<ResolvedCommand> {

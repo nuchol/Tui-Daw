@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::input::{EditorCommand, LocalCommand};
 use crate::theme::ResolvedTheme;
 use crate::windowpanes::splashscreen::SplashScreen;
-use ratatui::widgets::{Block, Borders, Clear};
+use ratatui::widgets::Clear;
 use ratatui::{
     layout::{ Rect, Direction, Layout, Constraint },
     Frame,

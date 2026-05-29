@@ -6,64 +6,79 @@ use ratatui::{
     widgets::StatefulWidget
 };
 
-use crate::{input::EditorCommand, log, theme::{ResolvedTheme, ThemeKey}};
+use crate::{input::{EditorCommand, Motion}, theme::{ResolvedTheme, ThemeKey}};
 use crate::windowpanes::window::Window;
 use crate::input::LocalCommand;
 
 const MIDI_MAX: u8 = 127;
 // Pulses Per Quarter Note (Ticks Per Beat)
-const PPQ: usize = 960;
-
-// 5 * 7 * 9 * 4 * 8 = 10080
-// 5 * 7 * 8 * 9 = 2520
+const PPQ: u32 = 960;
+const NOTE_NAMES: [&str; 12] = [
+    "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
+];
 
 struct Note {
     pitch: u8,
-    start_tick: usize,
+    start_tick: u32,
     // Duration in ticks
-    duration: usize,
+    duration: u32,
 }
 
 struct Pattern {
     notes: Vec<Note>,
-    length: usize, // in ticks
+    length: u32, // in ticks
 }
 
 pub struct PianoRoll {
-    cursor: (u16, u16),
-    note_size: usize, // in ticks
+    cursor: (u32, u8), // (tick, note)
+    note_size: u32, // in ticks
     notes: Vec<Note>, // Ordered by tick
     zoom: u8,
-    scroll: (u16, u16),
+    scroll: (u32, u8), // (ticks, notes)
     cells_per_beat: u16,
     beats_per_bar: u16,
+    ticks_per_beat: u32,
 }
 
 impl PianoRoll {
     pub fn new() -> Self {
         Self {
-            cursor: (10, 10),
+            cursor: (0, 10),
             note_size: 4,
             notes: Self::test_notes(),
             zoom: 1,
             scroll: (0, 50),
             cells_per_beat: 4,
             beats_per_bar: 4,
+            ticks_per_beat: PPQ,
         }
     }
 
     fn test_notes() -> Vec<Note> {
         vec![
             Note {pitch: 67, start_tick: PPQ * 0, duration: PPQ * 4},
-            Note {pitch: 68, start_tick: PPQ * 1, duration: (PPQ as f32 * 0.5) as usize},
+            Note {pitch: 68, start_tick: PPQ * 1, duration: (PPQ as f32 * 0.5) as u32},
             Note {pitch: 60, start_tick: PPQ * 2, duration: PPQ * 2},
         ]
     }
-}
 
-const NOTE_NAMES: [&str; 12] = [
-    "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
-];
+    fn handle_motion(&mut self, count: u32, motion: Motion) {
+        let (mut x, mut y) = self.cursor;
+
+        // ticks/bar = ticks/beat * beats/bar;
+        let ticks_per_bar = self.beats_per_bar as u32 * self.ticks_per_beat;
+        match motion {
+            // Motion::Bar => x += ticks_per_bar,
+            Motion::Bar => x = (x / ticks_per_bar + count) * ticks_per_bar,
+            Motion::Beat => x = (x / self.ticks_per_beat + count) * self.ticks_per_beat,
+            Motion::Subdivision => (),
+
+            _ => return,
+        };
+
+        self.cursor = (x, y);
+    }
+}
 
 impl Window for PianoRoll {
     fn title(&self) -> &str { " Piano Roll " }
@@ -82,11 +97,28 @@ impl Window for PianoRoll {
     }
 
     fn handle_input(&mut self, cmd: LocalCommand) -> Option<EditorCommand> {
-        None
+        match cmd {
+            LocalCommand::MoveLocalCursor { dx, dy } => {
+                let ticks_per_cell = (PPQ / self.cells_per_beat as u32) as i32;
+                self.cursor.0 = self.cursor.0.saturating_add_signed(dx * ticks_per_cell);
+                self.cursor.1 = (self.cursor.1 as i32 - dy)
+                                .clamp(0, i8::MAX as i32) as u8;
+
+                None
+            },
+
+            LocalCommand::MoveByMotion { count, motion } => {
+                self.handle_motion(count, motion);
+                None
+            },
+
+            _ => None,
+        }
     }
 }
 
 pub struct PianoRollWidget {
+    cursor_style: Style,
     white_style: (Style, Style),
     black_style: (Style, Style),
     bar_div_style: Style,
@@ -101,6 +133,7 @@ pub struct PianoRollWidget {
 impl PianoRollWidget {
     pub fn new(theme: &ResolvedTheme) -> Self {
         Self {
+            cursor_style: theme.get(ThemeKey::Cursor),
             white_style: (theme.get(ThemeKey::PianoRollWhiteKey), 
                 theme.get(ThemeKey::PianoRollWhiteKeyPressed)),
             black_style: (theme.get(ThemeKey::PianoRollBlackKey),
@@ -141,10 +174,15 @@ impl PianoRollWidget {
         self
     }
 
+    fn ticks_to_cells(tick: u32, state: &PianoRoll) -> u16 {
+        let ticks_per_cell = PPQ / state.cells_per_beat as u32;
+        (tick / ticks_per_cell) as u16
+    }
+
     fn render_piano_keys(&self, area: Rect, buf: &mut Buffer, state: &PianoRoll) {
         for row in 0..area.height {
             // TODO: Remove hard coding
-            let midi_note = MIDI_MAX as u16 - (state.scroll.1 + row);
+            let midi_note = MIDI_MAX - (state.scroll.1 + row as u8);
             let pressed = vec![46, 48, 51].contains(&midi_note);
 
             let note = (midi_note % 12) as usize;
@@ -186,7 +224,7 @@ impl PianoRollWidget {
     fn render_vertical_lines(&self, area: Rect, buf: &mut Buffer, state: &PianoRoll) {
         for col in 0..area.width {
             // Absolute column index from the beginning of the piece.
-            let abs_col = col + state.scroll.0;
+            let abs_col = col + Self::ticks_to_cells(state.scroll.0, state);
 
             let is_bar = abs_col % (state.beats_per_bar * state.cells_per_beat) == 0;
             let is_beat = abs_col % state.cells_per_beat == 0;
@@ -217,7 +255,7 @@ impl PianoRollWidget {
     fn render_bar_numbers(&self, area: Rect, buf: &mut Buffer, state: &PianoRoll) {
         for col in 0..area.width {
             // Absolute column index from the beginning of the piece.
-            let abs_col = col + state.scroll.0;
+            let abs_col = col + Self::ticks_to_cells(state.scroll.0, state);
 
             let is_bar = abs_col % (state.beats_per_bar * state.cells_per_beat) == 0;
             let is_num = (abs_col.saturating_sub(1)) % (state.beats_per_bar * state.cells_per_beat) == 0;
@@ -255,7 +293,7 @@ impl PianoRollWidget {
             let y = area.y + row as u16;
 
             let ticks_per_cell = PPQ as u16 / state.cells_per_beat;
-            let start_cell = note.start_tick as u16 / ticks_per_cell - state.scroll.0;
+            let start_cell = Self::ticks_to_cells(note.start_tick - state.scroll.0, state);
             let length = (note.duration as u16 / ticks_per_cell).max(1);
 
             // note is not visible
@@ -293,15 +331,9 @@ impl PianoRollWidget {
 impl StatefulWidget for PianoRollWidget {
     type State = PianoRoll;
 
-
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         let key_width = 7;
         let bar_number_height = 1;
-
-        // 
-        // ▎a7
-        // ▍a7
-        // ▌a7
 
         let grid_area = Rect {
             y: area.y + bar_number_height,
@@ -326,6 +358,12 @@ impl StatefulWidget for PianoRollWidget {
         self.render_piano_keys(keys_area, buf, state);
         self.render_vertical_lines(grid_area, buf, state);
         self.render_notes(grid_area, buf, state);
+
+        let cursor_x = Self::ticks_to_cells(state.cursor.0 - state.scroll.0, state);
+        buf[(cursor_x + grid_area.x, state.cursor.1 as u16 + grid_area.y)]
+            .set_style(self.cursor_style)
+            .set_char(' ');
     }
 }
+
 
