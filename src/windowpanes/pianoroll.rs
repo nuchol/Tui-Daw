@@ -6,7 +6,7 @@ use ratatui::{
     widgets::StatefulWidget
 };
 
-use crate::{input::{EditorCommand, Motion}, theme::{ResolvedTheme, ThemeKey}};
+use crate::{input::{EditorCommand, Motion, Move}, theme::{ResolvedTheme, ThemeKey}};
 use crate::windowpanes::window::Window;
 use crate::input::LocalCommand;
 
@@ -67,11 +67,17 @@ impl PianoRoll {
 
         // ticks/bar = ticks/beat * beats/bar;
         let ticks_per_bar = self.beats_per_bar as u32 * self.ticks_per_beat;
-        match motion {
+        match motion.move_type {
             // Motion::Bar => x += ticks_per_bar,
-            Motion::Bar => x = (x / ticks_per_bar + count) * ticks_per_bar,
-            Motion::Beat => x = (x / self.ticks_per_beat + count) * self.ticks_per_beat,
-            Motion::Subdivision => (),
+            Move::Bar => x = (x / ticks_per_bar)
+                .saturating_add_signed(count as i32 * motion.dir as i32)
+                * ticks_per_bar,
+
+            Move::Beat => x = (x / self.ticks_per_beat)
+                .saturating_add_signed(count as i32 * motion.dir as i32)
+                * self.ticks_per_beat,
+
+            Move::Subdivision => (),
 
             _ => return,
         };

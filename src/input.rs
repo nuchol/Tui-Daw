@@ -25,20 +25,30 @@ impl fmt::Display for Mode {
     }
 }
 
-pub enum Motion {
+pub enum Move {
     None,
 
-    Left,
-    Right,
-    Up,
-    Down,
+    HStep,
+    VStep,
 
     Beat,
     Bar,
     Subdivision,
+    Note,
 
     Start,
     End,
+}
+
+pub struct Motion {
+    pub move_type: Move,
+    pub dir: MoveDir,
+}
+
+impl Motion {
+    fn new(move_type: Move, dir: MoveDir) -> Self {
+        Self { move_type, dir, }
+    }
 }
 
 pub enum Operator {
@@ -48,29 +58,35 @@ pub enum Operator {
     Confirm,
 }
 
+#[derive(PartialEq, Eq)]
+pub enum MoveDir {
+    Forward = 1, 
+    Backward = -1,
+}
+
 pub enum InputAction {
     Move {
         count: u32,
-        motion: Motion,
+        motion: Option<Motion>,
     },
     
     Operation {
         count: u32,
         operator: Operator,
-        motion: Motion,
+        motion: Option<Motion>,
     },
 
     Command(String),
 }
 
 pub enum EditorCommand {
+    Yank   { count: u32, motion: Motion },
+    Paste  { count: u32, motion: Motion },
+    Undo   { count: u32, motion: Motion },
+    Redo   { count: u32, motion: Motion },
+    Mute   { count: u32, motion: Motion },
+    Solo   { count: u32, motion: Motion },
     Delete { count: u32, motion: Motion },
-    Yank { count: u32, motion: Motion },
-    Paste { count: u32, motion: Motion },
-    Undo { count: u32, motion: Motion },
-    Redo { count: u32, motion: Motion },
-    Mute { count: u32, motion: Motion },
-    Solo { count: u32, motion: Motion },
     Bpm { bpm: u32 },
     OpenWindow { display: WindowPaneType, window: Box<dyn Window> },
     Theme { theme: String },
@@ -205,22 +221,26 @@ fn handle_normal_mode(
 
         KeyCode::Char('u') => {
             state.input_state.operator = Some(Operator::Undo);
-            emit_action(&mut state.input_state, Motion::None)
+            emit_action(&mut state.input_state, None)
         }
 
         KeyCode::Enter => {
             state.input_state.operator = Some(Operator::Confirm);
-            emit_action(&mut state.input_state, Motion::None)
+            emit_action(&mut state.input_state, None)
         }
 
-        KeyCode::Char('h') => emit_action(&mut state.input_state, Motion::Left),
-        KeyCode::Char('j') => emit_action(&mut state.input_state, Motion::Down),
-        KeyCode::Char('k') => emit_action(&mut state.input_state, Motion::Up),
-        KeyCode::Char('l') => emit_action(&mut state.input_state, Motion::Right),
+        KeyCode::Char('h') => emit_action(&mut state.input_state, Some(Motion::new(Move::HStep, MoveDir::Backward))),
+        KeyCode::Char('j') => emit_action(&mut state.input_state, Some(Motion::new(Move::VStep, MoveDir::Backward))),
+        KeyCode::Char('k') => emit_action(&mut state.input_state, Some(Motion::new(Move::VStep, MoveDir::Forward))),
+        KeyCode::Char('l') => emit_action(&mut state.input_state, Some(Motion::new(Move::HStep, MoveDir::Forward))),
 
-        KeyCode::Char('B') => emit_action(&mut state.input_state, Motion::Bar),
-        KeyCode::Char('b') => emit_action(&mut state.input_state, Motion::Beat),
-        KeyCode::Char('s') => emit_action(&mut state.input_state, Motion::Subdivision),
+        KeyCode::Char('W') => emit_action(&mut state.input_state, Some(Motion::new(Move::Bar, MoveDir::Forward))),
+        KeyCode::Char('B') => emit_action(&mut state.input_state, Some(Motion::new(Move::Bar, MoveDir::Backward))),
+        KeyCode::Char('w') => emit_action(&mut state.input_state, Some(Motion::new(Move::Note, MoveDir::Forward))),
+        KeyCode::Char('b') => emit_action(&mut state.input_state, Some(Motion::new(Move::Note, MoveDir::Backward))),
+
+        KeyCode::Char('s') => emit_action(&mut state.input_state, Some(Motion::new(Move::Subdivision, MoveDir::Forward))),
+        KeyCode::Char('S') => emit_action(&mut state.input_state, Some(Motion::new(Move::Subdivision, MoveDir::Backward))),
 
         _ => None,
     }
@@ -228,7 +248,7 @@ fn handle_normal_mode(
 
 fn emit_action(
     state: &mut InputState,
-    motion: Motion
+    motion: Option<Motion>,
 ) -> Option<InputAction> {
     let count = if state.count == 0 { 1 } else { state.count };
 
@@ -258,7 +278,7 @@ fn resolve_action(
 ) -> Option<ResolvedCommand> {
     match action {
         Some(InputAction::Move { count, motion }) => {
-            resolve_move(count, motion)
+            resolve_move(count, motion.unwrap())
         }
 
         Some(InputAction::Operation {
@@ -277,11 +297,9 @@ fn resolve_move(
     count: u32,
     motion: Motion,
 ) -> Option<ResolvedCommand> {
-    let cmd = match motion {
-        Motion::Up    => LocalCommand::MoveLocalCursor { dx: 0, dy: count as i32 },
-        Motion::Down  => LocalCommand::MoveLocalCursor { dx: 0, dy: -(count as i32) },
-        Motion::Left  => LocalCommand::MoveLocalCursor { dx: -(count as i32), dy: 0 },
-        Motion::Right => LocalCommand::MoveLocalCursor { dx: count as i32, dy: 0 },
+    let cmd = match motion.move_type {
+        Move::VStep => LocalCommand::MoveLocalCursor { dx: 0, dy: count as i32 * motion.dir as i32 },
+        Move::HStep => LocalCommand::MoveLocalCursor { dx: count as i32 * motion.dir as i32, dy: 0 },
 
         // Any motion that must be handled by window.
         _ => LocalCommand::MoveByMotion { count, motion },
@@ -293,7 +311,7 @@ fn resolve_move(
 fn resolve_operation(
     count: u32,
     operator: Operator,
-    motion: Motion,
+    motion: Option<Motion>,
 ) -> Option<ResolvedCommand> {
     match operator {
         // Operator::Delete => Some(ResolvedCommand::Editor(
