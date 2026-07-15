@@ -6,7 +6,7 @@ use ratatui::{
     widgets::StatefulWidget
 };
 
-use crate::{input::{EditorCommand, Motion, Move}, theme::{ResolvedTheme, ThemeKey}};
+use crate::{input::{EditorCommand, Motion, Move, MoveDir}, log::{LogLevel, log}, theme::{ResolvedTheme, ThemeKey}};
 use crate::windowpanes::window::Window;
 use crate::input::LocalCommand;
 
@@ -31,8 +31,8 @@ struct Pattern {
 
 pub struct PianoRoll {
     cursor: (u32, u8), // (tick, note)
-    note_size: u32, // in ticks
     notes: Vec<Note>, // Ordered by tick
+    note_size: u32, // in ticks
     zoom: u8,
     scroll: (u32, u8), // (ticks, notes)
     cells_per_beat: u16,
@@ -54,12 +54,23 @@ impl PianoRoll {
         }
     }
 
+    fn cursor_pitch(&self) -> u8 {
+        MIDI_MAX - (self.cursor.1 + self.scroll.1)
+    }
+
     fn test_notes() -> Vec<Note> {
-        vec![
+        let mut notes = vec![
             Note {pitch: 67, start_tick: PPQ * 0, duration: PPQ * 4},
-            Note {pitch: 68, start_tick: PPQ * 1, duration: (PPQ as f32 * 0.5) as u32},
-            Note {pitch: 60, start_tick: PPQ * 2, duration: PPQ * 2},
-        ]
+            Note {pitch: 67, start_tick: PPQ * 2, duration: PPQ * 2},
+            Note {pitch: 67, start_tick: PPQ * 7, duration: PPQ * 6},
+            Note {pitch: 67, start_tick: PPQ * 9, duration: PPQ * 1},
+            Note {pitch: 67, start_tick: PPQ * 11, duration: PPQ * 5},
+
+            // Note {pitch: 68, start_tick: PPQ * 1, duration: (PPQ as f32 * 0.5) as u32},
+            // Note {pitch: 60, start_tick: PPQ * 2, duration: PPQ * 2},
+        ];
+        notes.sort_by(|a, b| a.start_tick.cmp(&b.start_tick));
+        notes
     }
 
     fn handle_motion(&mut self, count: u32, motion: Motion) {
@@ -73,6 +84,8 @@ impl PianoRoll {
                 .saturating_add_signed(count as i32 * motion.dir as i32)
                 * ticks_per_bar,
 
+            Move::Note => x = self.get_next_note_tick(self.cursor_pitch(), motion.dir),
+
             Move::Beat => x = (x / self.ticks_per_beat)
                 .saturating_add_signed(count as i32 * motion.dir as i32)
                 * self.ticks_per_beat,
@@ -83,6 +96,21 @@ impl PianoRoll {
         };
 
         self.cursor = (x, y);
+    }
+
+    fn get_next_note_tick(&self, pitch: u8, dir: MoveDir) -> u32 {
+        let note = match dir {
+            MoveDir::Forward => {
+                let split = self.notes.partition_point(|n| n.start_tick <= self.cursor.0);
+                self.notes[split..].iter().find(|n| n.pitch == pitch)
+            }
+            MoveDir::Backward => {
+                let split = self.notes.partition_point(|n| n.start_tick < self.cursor.0);
+                self.notes[..split].iter().rev().find(|n| n.pitch == pitch)
+            }
+        };
+
+        note.map_or(self.cursor.0, |n| n.start_tick)
     }
 }
 
