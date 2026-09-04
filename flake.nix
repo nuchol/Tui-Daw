@@ -15,6 +15,14 @@
       nativeBuildInputs = [ pkgs.pkg-config ];
 
       env.RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
+
+      shellHook = ''
+        if [ -n "$ZSH_VERSION" ]; then
+          eval "$(oh-my-posh init zsh --config $HOME/.config/oh-my-posh/theme.toml)"
+        elif [ -n "$BASH_VERSION" ]; then
+          eval "$(oh-my-posh init bash --config $HOME/.config/oh-my-posh/theme.toml)"
+        fi
+      '';
     };
   };
 }

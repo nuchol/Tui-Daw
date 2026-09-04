@@ -61,10 +61,10 @@ impl PianoRoll {
     fn test_notes() -> Vec<Note> {
         let mut notes = vec![
             Note {pitch: 67, start_tick: PPQ * 0, duration: PPQ * 4},
-            Note {pitch: 67, start_tick: PPQ * 2, duration: PPQ * 2},
-            Note {pitch: 67, start_tick: PPQ * 7, duration: PPQ * 6},
-            Note {pitch: 67, start_tick: PPQ * 9, duration: PPQ * 1},
-            Note {pitch: 67, start_tick: PPQ * 11, duration: PPQ * 5},
+            Note {pitch: 68, start_tick: PPQ * 2, duration: PPQ * 2},
+            Note {pitch: 69, start_tick: PPQ * 7, duration: PPQ * 6},
+            Note {pitch: 70, start_tick: PPQ * 9, duration: PPQ * 1},
+            Note {pitch: 71, start_tick: PPQ * 11, duration: PPQ * 5},
 
             // Note {pitch: 68, start_tick: PPQ * 1, duration: (PPQ as f32 * 0.5) as u32},
             // Note {pitch: 60, start_tick: PPQ * 2, duration: PPQ * 2},
@@ -84,7 +84,9 @@ impl PianoRoll {
                 .saturating_add_signed(count as i32 * motion.dir as i32)
                 * ticks_per_bar,
 
-            Move::Note => x = self.get_next_note_tick(self.cursor_pitch(), motion.dir),
+            // Go to next note (n/N)
+            Move::Next => x = self.get_next_note(self.cursor_pitch(), motion.dir)
+                .map_or(self.cursor.0, |n| n.start_tick),
 
             Move::Beat => x = (x / self.ticks_per_beat)
                 .saturating_add_signed(count as i32 * motion.dir as i32)
@@ -98,8 +100,8 @@ impl PianoRoll {
         self.cursor = (x, y);
     }
 
-    fn get_next_note_tick(&self, pitch: u8, dir: MoveDir) -> u32 {
-        let note = match dir {
+    fn get_next_note(&self, pitch: u8, dir: MoveDir) -> Option<&Note> {
+        match dir {
             MoveDir::Forward => {
                 let split = self.notes.partition_point(|n| n.start_tick <= self.cursor.0);
                 self.notes[split..].iter().find(|n| n.pitch == pitch)
@@ -108,9 +110,7 @@ impl PianoRoll {
                 let split = self.notes.partition_point(|n| n.start_tick < self.cursor.0);
                 self.notes[..split].iter().rev().find(|n| n.pitch == pitch)
             }
-        };
-
-        note.map_or(self.cursor.0, |n| n.start_tick)
+        }
     }
 }
 

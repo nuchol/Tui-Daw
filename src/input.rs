@@ -34,7 +34,7 @@ pub enum Move {
     Beat,
     Bar,
     Subdivision,
-    Note,
+    Next,
 
     Start,
     End,
@@ -234,8 +234,8 @@ fn handle_normal_mode(
         KeyCode::Char('k') => emit_action(&mut state.input_state, Some(Motion::new(Move::VStep, MoveDir::Forward))),
         KeyCode::Char('l') => emit_action(&mut state.input_state, Some(Motion::new(Move::HStep, MoveDir::Forward))),
 
-        KeyCode::Char('n') => emit_action(&mut state.input_state, Some(Motion::new(Move::Note, MoveDir::Forward))),
-        KeyCode::Char('N') => emit_action(&mut state.input_state, Some(Motion::new(Move::Note, MoveDir::Backward))),
+        KeyCode::Char('n') => emit_action(&mut state.input_state, Some(Motion::new(Move::Next, MoveDir::Forward))),
+        KeyCode::Char('N') => emit_action(&mut state.input_state, Some(Motion::new(Move::Next, MoveDir::Backward))),
         KeyCode::Char('w') => emit_action(&mut state.input_state, Some(Motion::new(Move::Beat, MoveDir::Forward))),
         KeyCode::Char('b') => emit_action(&mut state.input_state, Some(Motion::new(Move::Beat, MoveDir::Backward))),
         KeyCode::Char('W') => emit_action(&mut state.input_state, Some(Motion::new(Move::Bar, MoveDir::Forward))),
