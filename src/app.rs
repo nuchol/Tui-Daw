@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use crate::input::{
-    VimInput, InputState, Mode, CommandState,
+    Input, Mode,
     ResolvedCommand, EditorCommand
 };
 
@@ -18,17 +18,15 @@ use ratatui::{
     style::Style,
 };
 
-pub struct AppState {
+pub struct App {
     pub running: bool,
-    pub mode: Mode,
-    pub input_state: InputState,
-    pub command_state: CommandState,
+    pub input: Input,
     pub windows: WindowManager,
     pub theme_registry: ThemeRegistry,
     pub theme: ResolvedTheme,
 }
 
-impl AppState {
+impl App {
     pub fn new() -> Self {
         // TODO: Add a default theme and fall back to it if no theme file is found
         let src = std::fs::read_to_string("./res/themes/catppuccin.toml")
@@ -39,67 +37,58 @@ impl AppState {
 
         Self {
             running: true,
-            mode: Mode::Normal,
-            input_state: InputState::new(),
-            command_state: CommandState::default(),
+            input: Input::default(),
             windows: WindowManager::new(),
             theme_registry,
             theme,
         }
     }
 
-    pub fn get_style(&self, key: ThemeKey) -> Style {
-        self.theme.get(key)
-    }
-}
-
-pub struct App;
-impl App {
-    pub fn run_loop(mut terminal: DefaultTerminal, state: &mut AppState) -> Result<()> {
-        while state.running {
+    pub fn run_loop(&mut self, mut terminal: DefaultTerminal) -> Result<()> {
+        while self.running {
             if event::poll(Duration::from_millis(16))? &&
                 let Event::Key(key) = event::read()? {
-                Self::handle_keyevent(state, key);
+                self.handle_keyevent(key);
             }
 
-            terminal.draw(|frame| Self::render(frame, state))?;
+            terminal.draw(|frame| self.render(frame))?;
         }
 
         Ok(())
     }
 
-    fn handle_keyevent(state: &mut AppState, key: KeyEvent) {
+    fn handle_keyevent(&mut self, key: KeyEvent) {
         // TODO: Since escape is being pressed for more than one frame,
         //       all popups are being popped, should be on key pressed.
-        if state.windows.is_popup_active()
+        if self.windows.is_popup_active()
             && key.code == KeyCode::Esc {
-            state.windows.pop_popup();
+            self.windows.pop_popup();
         }
 
-        if let Some(cmd) = VimInput::handle_keypress(state, key.code) {
+        if let Some(cmd) = self.input.handle_keypress(key.code) {
             match cmd {
                 ResolvedCommand::Editor(editor_cmd) => {
-                    Self::execute_editor_command(state, editor_cmd);
+                    self.execute_editor_command(editor_cmd);
                 },
 
                 ResolvedCommand::Local(local_cmd) => {
-                    if let Some(editor_cmd) = state.windows.handle_input(local_cmd) {
-                        Self::execute_editor_command(state, editor_cmd);
+                    if let Some(editor_cmd) = self.windows.handle_input(local_cmd) {
+                        self.execute_editor_command(editor_cmd);
                     }
                 },
             }
         }
     }
 
-    fn execute_editor_command(state: &mut AppState, command: EditorCommand) {
+    fn execute_editor_command(&mut self, command: EditorCommand) {
         match command {
-            EditorCommand::Quit => state.running = false,
+            EditorCommand::Quit => self.running = false,
             EditorCommand::OpenWindow { display, window } => {
-                state.windows.pop_popup();
+                self.windows.pop_popup();
                 match display {
-                    WindowPaneType::Popup => { state.windows.push_popup(window); }
+                    WindowPaneType::Popup => { self.windows.push_popup(window); }
                     WindowPaneType::Direction { direction } => {
-                        state.windows.split_current_window(direction, window);
+                        self.windows.split_current_window(direction, window);
                     }
                 }
             }
@@ -111,7 +100,7 @@ impl App {
         };
     }
 
-    fn render(frame: &mut Frame, state: &mut AppState) {
+    fn render(&mut self, frame: &mut Frame) {
         let base_layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints(vec![
@@ -120,8 +109,12 @@ impl App {
             ])
             .split(frame.area());
 
-        CommandLine::render(frame, base_layout[1], state);
+        CommandLine::render(frame, base_layout[1], &self.input, &self.theme);
 
-        state.windows.render_layout(frame, base_layout[0], &state.theme);
+        self.windows.render_layout(frame, base_layout[0], &self.theme);
+    }
+
+    pub fn get_style(&self, key: ThemeKey) -> Style {
+        self.theme.get(key)
     }
 }

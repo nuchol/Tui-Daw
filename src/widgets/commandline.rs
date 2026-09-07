@@ -7,45 +7,49 @@ use ratatui::{
 };
 
 use crate::{
-    AppState,
-    input::Mode,
-    theme::{ResolvedTheme, ThemeKey},
-    log,
+    input::{Input, Mode}, log, theme::{ResolvedTheme, ThemeKey}
 };
 
 pub struct CommandLine;
-
 impl CommandLine {
     pub fn render(
         frame: &mut Frame,
         area: Rect,
-        state: &AppState,
+        input: &Input,
+        theme: &ResolvedTheme,
     ) {
         frame.render_widget(Paragraph::new(
-            Self::format_line(state, area.width)),
+            Self::format_line(input, area.width, theme)),
             area,
         );
     }
 
-    fn format_line(state: &AppState, width: u16) -> Line<'_> {
-        let mode = Self::get_mode(state);
+    fn format_line<'a>(
+        input: &'a Input,
+        width: u16,
+        theme: &ResolvedTheme,
+    ) -> Line<'a> {
+        let mode_span = Self::get_mode(&input.mode, theme);
 
-        let content = match state.mode {
+        let content = match input.mode {
             Mode::Normal | Mode::Insert => vec![match log::current() {
-                Some((msg, level)) => Self::get_log(msg, level, &state.theme),
+                Some((msg, level)) => Self::get_log(msg, level, theme),
                 None => Span::default(),
             }],
 
-            Mode::Command => Self::command_line(state),
+            Mode::Command => Self::command_line(
+                &input.command_buffer,
+                input.command_cursor,
+                theme
+            ),
         };
 
-        let right = state.input_state.display();
-
+        let right = input.display_op();
         let content_len: usize = content.iter().map(|s| s.content.len()).sum();
-        let mode_len: usize = mode.iter().map(|s| s.content.len()).sum();
+        let mode_len: usize = mode_span.iter().map(|s| s.content.len()).sum();
         let spacing = mode_len + content_len + right.len();
 
-        let mut spans = mode;
+        let mut spans = mode_span;
         spans.push(Span::raw(" "));
         spans.extend(content);
         spans.push(Span::raw(" ".repeat((width as usize).saturating_sub(spacing))));
@@ -54,19 +58,19 @@ impl CommandLine {
         Line::from(spans)
     }
 
-    fn command_line(state: &AppState) -> Vec<Span<'_>> {
-        let cmd = &state.command_state;
-
-        let cursor = cmd.cursor.min(cmd.buffer.len());
-
-        let (before, after) = cmd.buffer.split_at(cursor);
+    fn command_line<'a>(
+        cmd: &'a str,
+        cursor: usize,
+        theme: &ResolvedTheme
+    ) -> Vec<Span<'a>> {
+        let (before, after) = cmd.split_at(cursor.min(cmd.len()));
 
         vec![
             Span::raw(":"),
-            Span::raw(before),
+            Span::raw(before.to_string()),
             Span::styled(
                 after.chars().next().unwrap_or(' ').to_string(),
-                state.get_style(ThemeKey::Cursor)
+                theme.get(ThemeKey::Cursor)
             ),
             Span::raw(
                 after.chars().skip(1).collect::<String>()
@@ -74,7 +78,10 @@ impl CommandLine {
         ]
     }
 
-    fn get_log(msg: String, level: log::LogLevel, theme: &ResolvedTheme
+    fn get_log(
+        msg: String,
+        level: log::LogLevel,
+        theme: &ResolvedTheme,
     ) -> Span<'static> {
         Span::styled(msg, match level {
             log::LogLevel::INFO => theme.get(ThemeKey::Normal),
@@ -83,16 +90,19 @@ impl CommandLine {
         })
     }
 
-    fn get_mode(state: &AppState) -> Vec<Span<'_>> {
-        let s = match state.mode {
-            Mode::Normal => state.get_style(ThemeKey::ModeNormal),
-            Mode::Insert => state.get_style(ThemeKey::ModeInsert),
-            Mode::Command => state.get_style(ThemeKey::ModeCommand),
+    fn get_mode<'a>(
+        mode: &'a Mode,
+        theme: &ResolvedTheme
+    ) -> Vec<Span<'a>> {
+        let style = match mode {
+            Mode::Normal => theme.get(ThemeKey::ModeNormal),
+            Mode::Insert => theme.get(ThemeKey::ModeInsert),
+            Mode::Command => theme.get(ThemeKey::ModeCommand),
         };
 
         vec![Span::styled(format!(" {} ",
-            state.mode.to_string().to_uppercase()), s),
-            Span::styled("", Style::default().fg(s.bg.unwrap_or(Color::Reset))),
+            mode.to_string().to_uppercase()), style),
+            Span::styled("", Style::default().fg(style.bg.unwrap_or(Color::Reset))),
         ]
     }
 }

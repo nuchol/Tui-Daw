@@ -6,9 +6,11 @@ use ratatui::{
     widgets::StatefulWidget
 };
 
-use crate::{input::{EditorCommand, Motion, Move, MoveDir}, log::{LogLevel, log}, theme::{ResolvedTheme, ThemeKey}};
-use crate::windowpanes::window::Window;
-use crate::input::LocalCommand;
+use crate::{
+    input::{LocalCommand, EditorCommand, Motion, Move, MoveDir},
+    theme::{ResolvedTheme, ThemeKey},
+    windowpanes::window::Window,
+};
 
 const MIDI_MAX: u8 = 127;
 // Pulses Per Quarter Note (Ticks Per Beat)
@@ -27,6 +29,10 @@ struct Note {
 struct Pattern {
     notes: Vec<Note>,
     length: u32, // in ticks
+}
+
+enum PianoRollMotion {
+
 }
 
 pub struct PianoRoll {
