@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::input::{EditorCommand, LocalCommand};
+use crate::input::{EditorCommand, LocalCommand, UniversalCommand};
 use crate::theme::ResolvedTheme;
 use crate::windowpanes::splashscreen::SplashScreen;
 use ratatui::widgets::Clear;
@@ -213,24 +213,28 @@ impl WindowManager {
         self.focused = Some(id);
     }
 
-    pub fn get_focuesed(&self) -> Option<&mut Box<dyn Window>> {
+    pub fn get_focuesed_mut(&mut self) -> Option<&mut Box<dyn Window>> {
         let window_id = self.popup_stack.last();
         let focused = window_id.copied().or(self.focused);
 
         if let Some(id) = focused {
-            let window = self.windows.get(&id).unwrap();
+            let window = self.windows.get_mut(&id).unwrap();
             return Some(window);
         }
 
         None
     }
 
-    pub fn handle_input(&mut self, cmd: LocalCommand) -> Option<EditorCommand> {
-        let window_id = self.popup_stack.last();
-        let focused = window_id.copied().or(self.focused);
+    pub fn handle_universal(&mut self, cmd: UniversalCommand) {
+        let focused = self.get_focuesed_mut();
+        if let Some(window) = focused {
+            window.handle_universal(cmd);
+        }
+    }
 
-        if let Some(id) = focused {
-            let window = self.windows.get_mut(&id).unwrap();
+    pub fn handle_input(&mut self, cmd: LocalCommand) -> Option<EditorCommand> {
+        let focused = self.get_focuesed_mut();
+        if let Some(window) = focused {
             return window.handle_input(cmd);
         }
 

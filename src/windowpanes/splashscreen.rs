@@ -132,4 +132,8 @@ impl Window for SplashScreen {
     fn handle_input(&mut self, cmd: LocalCommand) -> Option<EditorCommand> {
         None
     }
+
+    fn handle_universal(&mut self, cmd: crate::input::UniversalCommand) {
+        
+    }
 }

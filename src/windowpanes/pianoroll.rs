@@ -1,15 +1,9 @@
 use ratatui::{
-    Frame,
-    buffer::Buffer,
-    layout::Rect,
-    style::Style,
-    widgets::StatefulWidget
+    Frame, buffer::Buffer, crossterm::event::KeyCode, layout::Rect, style::Style, widgets::StatefulWidget
 };
 
 use crate::{
-    input::{LocalCommand, EditorCommand, Motion, Move, MoveDir},
-    theme::{ResolvedTheme, ThemeKey},
-    windowpanes::window::Window,
+    input::{Dir, EditorCommand, LocalCommand, Motion, UniversalCommand}, log, theme::{ResolvedTheme, ThemeKey}, windowpanes::window::Window
 };
 
 const MIDI_MAX: u8 = 127;
@@ -32,9 +26,9 @@ struct Pattern {
 }
 
 enum PianoRollMotion {
-    Beat,
-    Bar,
-    Subdivision,
+    Beat(Dir),
+    Bar(Dir),
+    Subdivision(Dir),
 }
 
 pub struct PianoRoll {
@@ -81,40 +75,37 @@ impl PianoRoll {
         notes
     }
 
-    fn handle_motion(&mut self, count: u32, motion: Motion) {
+    fn handle_motion(&mut self, count: u32, motion: PianoRollMotion) -> Option<EditorCommand> {
         let (mut x, mut y) = self.cursor;
 
         // ticks/bar = ticks/beat * beats/bar;
         let ticks_per_bar = self.beats_per_bar as u32 * self.ticks_per_beat;
-        match motion.move_type {
+        match motion {
             // Motion::Bar => x += ticks_per_bar,
-            Move::Bar => x = (x / ticks_per_bar)
-                .saturating_add_signed(count as i32 * motion.dir as i32)
+            PianoRollMotion::Bar(dir) => x = (x / ticks_per_bar)
+                .saturating_add_signed(count as i32 * dir as i32)
                 * ticks_per_bar,
 
-            // Go to next note (n/N)
-            Move::Next => x = self.get_next_note(self.cursor_pitch(), motion.dir)
-                .map_or(self.cursor.0, |n| n.start_tick),
 
-            Move::Beat => x = (x / self.ticks_per_beat)
-                .saturating_add_signed(count as i32 * motion.dir as i32)
+            PianoRollMotion::Beat(dir) => x = (x / self.ticks_per_beat)
+                .saturating_add_signed(count as i32 * dir as i32)
                 * self.ticks_per_beat,
 
-            Move::Subdivision => (),
-
-            _ => return,
+            PianoRollMotion::Subdivision(dir) => (),
         };
 
+
         self.cursor = (x, y);
+        None
     }
 
-    fn get_next_note(&self, pitch: u8, dir: MoveDir) -> Option<&Note> {
+    fn get_next_note(&self, pitch: u8, dir: Dir) -> Option<&Note> {
         match dir {
-            MoveDir::Forward => {
+            Dir::Forward => {
                 let split = self.notes.partition_point(|n| n.start_tick <= self.cursor.0);
                 self.notes[split..].iter().find(|n| n.pitch == pitch)
             }
-            MoveDir::Backward => {
+            Dir::Backward => {
                 let split = self.notes.partition_point(|n| n.start_tick < self.cursor.0);
                 self.notes[..split].iter().rev().find(|n| n.pitch == pitch)
             }
@@ -137,24 +128,46 @@ impl Window for PianoRoll {
             self,
         );
     }
-
-    fn handle_input(&mut self, cmd: LocalCommand) -> Option<EditorCommand> {
+    
+    fn handle_universal(&mut self, cmd: UniversalCommand) {
+        let ticks_per_cell = (PPQ / self.cells_per_beat as u32) as i32;
         match cmd {
-            LocalCommand::MoveLocalCursor { dx, dy } => {
-                let ticks_per_cell = (PPQ / self.cells_per_beat as u32) as i32;
+            UniversalCommand::Horizontal { count, dir } => {
+                let dx = count as i32 * dir as i32;
                 self.cursor.0 = self.cursor.0.saturating_add_signed(dx * ticks_per_cell);
+            },
+
+            UniversalCommand::Vertical { count, dir } => {
+                let dy = count as i32 * dir as i32;
                 self.cursor.1 = (self.cursor.1 as i32 - dy)
                                 .clamp(0, i8::MAX as i32) as u8;
-
-                None
             },
 
-            LocalCommand::MoveByMotion { count, motion } => {
-                self.handle_motion(count, motion);
-                None
+            // Go to next note (n/N)
+            UniversalCommand::Next { count, dir } => self.cursor.0 = 
+                self.get_next_note(self.cursor_pitch(), dir)
+                    .map_or(self.cursor.0, |n| n.start_tick),
+
+            _ => ()
+        }
+    }
+
+    fn handle_input(&mut self, cmd: LocalCommand) -> Option<EditorCommand> {
+        log::log("Motion", log::LogLevel::INFO);
+        match cmd {
+            LocalCommand::Operator { .. } => None,
+            LocalCommand::KeyPress { count, key } => match key {
+                KeyCode::Char('w') => self.handle_motion(count, PianoRollMotion::Beat(Dir::Forward)),
+                KeyCode::Char('b') => self.handle_motion(count, PianoRollMotion::Beat(Dir::Backward)),
+                KeyCode::Char('W') => self.handle_motion(count, PianoRollMotion::Bar(Dir::Forward)),
+                KeyCode::Char('B') => self.handle_motion(count, PianoRollMotion::Bar(Dir::Backward)),
+                KeyCode::Char('s') => self.handle_motion(count, PianoRollMotion::Subdivision(Dir::Forward)),
+                KeyCode::Char('S') => self.handle_motion(count, PianoRollMotion::Subdivision(Dir::Backward)),
+
+                _ => None,
             },
 
-            _ => None,
+            LocalCommand::Confirm => None,
         }
     }
 }
