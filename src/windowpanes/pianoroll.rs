@@ -32,7 +32,9 @@ struct Pattern {
 }
 
 enum PianoRollMotion {
-
+    Beat,
+    Bar,
+    Subdivision,
 }
 
 pub struct PianoRoll {
@@ -282,8 +284,6 @@ impl PianoRollWidget {
                 let y = area.y + row;
                 let cell = &mut buf[(x, y)];
 
-                // Only stamp the line glyph on empty background cells so that note
-                // blocks drawn later can freely overwrite it.
                 if cell.symbol() == " " {
                     cell.set_style(style);
                     cell.set_char(line_char);
@@ -401,8 +401,8 @@ impl StatefulWidget for PianoRollWidget {
 
         let cursor_x = Self::ticks_to_cells(state.cursor.0 - state.scroll.0, state);
         buf[(cursor_x + grid_area.x, state.cursor.1 as u16 + grid_area.y)]
-            .set_style(self.cursor_style)
-            .set_char(' ');
+            .set_style(self.cursor_style);
+            // .set_char(' ');
     }
 }
 

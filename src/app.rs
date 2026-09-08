@@ -1,19 +1,15 @@
 use std::time::Duration;
 
-use crate::input::{
-    Input, Mode,
-    ResolvedCommand, EditorCommand
-};
-
 use crate::log;
 use crate::theme::{ResolvedTheme, ThemeKey, ThemeRegistry};
 use crate::widgets::commandline::CommandLine;
 use crate::windowpanes::window::{WindowManager, WindowPaneType};
+use crate::input::{Input, ResolvedCommand, EditorCommand};
 use color_eyre::eyre::{Ok, Result};
 
 use ratatui::{
     DefaultTerminal, Frame,
-    crossterm::event::{self, Event, KeyEvent, KeyCode},
+    crossterm::event::{self, Event, KeyEvent, KeyEventKind, KeyCode},
     layout::{ Direction, Layout, Constraint },
     style::Style,
 };
@@ -61,21 +57,19 @@ impl App {
         // TODO: Since escape is being pressed for more than one frame,
         //       all popups are being popped, should be on key pressed.
         if self.windows.is_popup_active()
-            && key.code == KeyCode::Esc {
+            && key.code == KeyCode::Esc && key.kind == KeyEventKind::Press {
             self.windows.pop_popup();
         }
 
-        if let Some(cmd) = self.input.handle_keypress(key.code) {
-            match cmd {
-                ResolvedCommand::Editor(editor_cmd) => {
-                    self.execute_editor_command(editor_cmd);
-                },
-
-                ResolvedCommand::Local(local_cmd) => {
-                    if let Some(editor_cmd) = self.windows.handle_input(local_cmd) {
+        if let Some(resolved) = self.input.handle_keypress(key.code) {
+            match resolved {
+                ResolvedCommand::Editor(cmd) => self.execute_editor_command(cmd),
+                ResolvedCommand::Universal(cmd) => self.windows.handle_universal(cmd),
+                ResolvedCommand::Local(cmd) => {
+                    if let Some(editor_cmd) = self.windows.handle_input(cmd) {
                         self.execute_editor_command(editor_cmd);
                     }
-                },
+                }
             }
         }
     }

@@ -27,18 +27,12 @@ impl fmt::Display for Mode {
 }
 
 pub enum Move {
-    // Physical (universal)
     Horizontal,
     Vertical,
     Next,
 
     Start,
     End,
-
-    // Semantic (per window)
-    Beat,
-    Bar,
-    Subdivision,
 }
 
 pub struct Motion {
@@ -82,12 +76,12 @@ pub enum InputAction {
 }
 
 pub enum EditorCommand {
-    Yank   { count: u32, motion: Motion },
-    Paste  { count: u32, motion: Motion },
-    Undo   { count: u32, motion: Motion },
-    Redo   { count: u32, motion: Motion },
-    Mute   { count: u32, motion: Motion },
-    Solo   { count: u32, motion: Motion },
+    Yank { count: u32, motion: Motion },
+    Paste { count: u32, motion: Motion },
+    Undo { count: u32, motion: Motion },
+    Redo { count: u32, motion: Motion },
+    Mute { count: u32, motion: Motion },
+    Solo { count: u32, motion: Motion },
     Delete { count: u32, motion: Motion },
     Bpm { bpm: u32 },
     OpenWindow { display: WindowPaneType, window: Box<dyn Window> },
@@ -95,14 +89,22 @@ pub enum EditorCommand {
     Quit,
 }
 
+pub enum UniversalCommand {
+    GotoStart,
+    GotoEnd,
+    ScrollUp(u32),
+    ScrollDown(u32),
+}
+
 pub enum LocalCommand {
-    MoveLocalCursor { dx: i32, dy: i32 },
-    MoveByMotion { count: u32, motion: Motion },
+    Move { count: u32, dir: MoveDir, key: KeyCode },
+    Operator { count: u32, dir: MoveDir, key: KeyCode, op: Operator },
     Confirm,
 }
 
 pub enum ResolvedCommand {
     Editor(EditorCommand),
+    Universal(UniversalCommand),
     Local(LocalCommand)
 }
 
@@ -154,6 +156,7 @@ impl Input {
     ) -> Option<ResolvedCommand> {
         if key == KeyCode::Esc {
             self.clear_op();
+            self.clear_command();
             self.mode = Mode::Normal;
             return None;
         }

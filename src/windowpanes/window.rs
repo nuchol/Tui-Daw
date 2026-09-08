@@ -17,6 +17,7 @@ pub trait Window {
         focused: bool,
         theme: &ResolvedTheme
     );
+    fn handle_universal(&mut self, cmd: UniversalCommand);
     fn handle_input(&mut self, cmd: LocalCommand) -> Option<EditorCommand>;
 }
 
@@ -210,6 +211,18 @@ impl WindowManager {
 
     pub fn set_focuesed(&mut self, id: usize) {
         self.focused = Some(id);
+    }
+
+    pub fn get_focuesed(&self) -> Option<&mut Box<dyn Window>> {
+        let window_id = self.popup_stack.last();
+        let focused = window_id.copied().or(self.focused);
+
+        if let Some(id) = focused {
+            let window = self.windows.get(&id).unwrap();
+            return Some(window);
+        }
+
+        None
     }
 
     pub fn handle_input(&mut self, cmd: LocalCommand) -> Option<EditorCommand> {
