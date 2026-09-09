@@ -98,9 +98,7 @@ pub enum EditorCommand {
         display: WindowPaneType,
         window: Box<dyn Window>,
     },
-    Theme {
-        theme: String,
-    },
+    Theme(String),
     Quit,
 }
 
@@ -193,6 +191,11 @@ impl Input {
             Mode::Command => self.handle_command_mode(key),
         };
 
+        if action.is_some() {
+            self.clear_op();
+            self.clear_command();
+        }
+
         Self::resolve_action(action)
     }
 
@@ -258,6 +261,7 @@ impl Input {
         }
     }
 
+    // TODO
     fn handle_insert_mode(&mut self, key: KeyCode) -> Option<InputAction> {
         return None;
     }
@@ -274,8 +278,6 @@ impl Input {
             InputAction::KeyPress { count, key } => Some(ResolvedCommand::Local(
                 LocalCommand::KeyPress {count, key }
             )),
-
-            _ => None,
         }
     }
 
@@ -301,9 +303,9 @@ impl Input {
             })),
 
             // TODO: Clearly not good
-            "theme" => Some(ResolvedCommand::Editor(EditorCommand::Theme {
-                theme: tokens[1].to_string(),
-            })),
+            "theme" => Some(ResolvedCommand::Editor(EditorCommand::Theme(
+                tokens[1].to_string(),
+            ))),
 
             _ => {
                 log::log(

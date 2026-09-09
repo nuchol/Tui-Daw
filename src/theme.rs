@@ -12,7 +12,7 @@ pub enum ThemeKey {
     // Global
     Normal, NormalFloat, StatusLine, StatusLineNC, ErrorMsg, WarnMsg, Cursor,
     // Float
-    FloatBoarder, FloatBoarderNC, FloatTitle, FloatTitleNC, FloatFooter,
+    FloatBorder, FloatBorderNC, FloatTitle, FloatTitleNC, FloatFooter,
     // Modes
     ModeNormal, ModeInsert, ModeCommand,
     // File Tree
@@ -21,7 +21,7 @@ pub enum ThemeKey {
     PianoRollNote, PianoRollNoteAccent, PianoRollNoteSelected,
     PianoRollBlackKey, PianoRollWhiteKey,
     PianoRollBlackKeyPressed, PianoRollWhiteKeyPressed,
-    PainoRollBarSeparator, PainoRollBeatSeparator, PainoRollSubDivSeparator,
+    PianoRollBarSeparator, PianoRollBeatSeparator, PianoRollSubDivSeparator,
 }
 
 #[derive(Clone, Default)]
@@ -66,10 +66,6 @@ pub struct ThemeRegistry {
 }
 
 impl ThemeRegistry {
-    pub fn new() -> Self {
-        Self { base: HashMap::new() }
-    }
-
     pub fn from_toml(src: &str) -> Result<Self, String> {
         let mut base = HashMap::new();
 
@@ -159,9 +155,9 @@ impl ResolvedTheme {
 
     pub fn window_border<'a>(&self, title: &'a str, focused: bool) -> Block<'a> {
         let style = if focused {
-            self.get(ThemeKey::FloatBoarder)
+            self.get(ThemeKey::FloatBorder)
         } else {
-            self.get(ThemeKey::FloatBoarderNC)
+            self.get(ThemeKey::FloatBorderNC)
         };
 
         Block::bordered()
@@ -174,7 +170,7 @@ impl ResolvedTheme {
     pub fn divider(&self, dir: &Direction) -> Block<'_> {
         Block::bordered().borders(if *dir == Direction::Vertical
             { Borders::TOP } else { Borders::LEFT })
-            .border_style(self.get(ThemeKey::FloatBoarder))
+            .border_style(self.get(ThemeKey::FloatBorder))
     }
 
     pub fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {

@@ -18,7 +18,6 @@ pub struct App {
     pub running: bool,
     pub input: Input,
     pub windows: WindowManager,
-    pub theme_registry: ThemeRegistry,
     pub theme: ResolvedTheme,
 }
 
@@ -35,7 +34,6 @@ impl App {
             running: true,
             input: Input::default(),
             windows: WindowManager::new(),
-            theme_registry,
             theme,
         }
     }
@@ -86,7 +84,7 @@ impl App {
                     }
                 }
             }
-            EditorCommand::Theme { theme } => {
+            EditorCommand::Theme(theme) => {
                 log::log(format!("TODO: Set theme to \"{}\"", theme), log::LogLevel::INFO);
             }
             

@@ -2,7 +2,7 @@ use crate::{
     input::{Dir, Operator, UniversalCommand}, theme::{ResolvedTheme, ThemeKey}, widgets::tree::{
         node::{NodeId, NodeKind},
         state::TreeState,
-        treewiddget::TreeWidget,
+        treewidget::TreeWidget,
     }, windowpanes::{
         window::{Window, WindowPaneType},
         windowregistry::*,

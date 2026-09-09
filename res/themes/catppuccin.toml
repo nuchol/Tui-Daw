@@ -69,17 +69,17 @@
     bg = "p:green"
     bold = true
 
-[group.FloatBoarder]
+[group.FloatBorder]
     fg = "p:blue"
 
-[group.FloatBoarderNC]
+[group.FloatBorderNC]
     fg = "p:subtext0"
 
 [group.FloatTitle]
-    link = "FloatBoarder"
+    link = "FloatBorder"
 
 [group.FloatTitleNC]
-    link = "FloatBoarderNC"
+    link = "FloatBorderNC"
 
 [group.FileTreeDir]
     fg = "p:blue"
@@ -118,11 +118,11 @@
 [group.PianoRollBlackKeyPressed]
     link = "PianoRollWhiteKeyPressed"
 
-[group.PainoRollBarSeparator]
+[group.PianoRollBarSeparator]
     fg = "p:surface2"
 
-[group.PainoRollBeatSeparator]
-    link = "PainoRollBarSeparator"
+[group.PianoRollBeatSeparator]
+    link = "PianoRollBarSeparator"
 
-[group.PainoRollSubDivSeparator]
+[group.PianoRollSubDivSeparator]
     fg = "p:surface0"

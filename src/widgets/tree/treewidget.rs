@@ -26,7 +26,7 @@ pub struct TreeWidget<'a, T> {
     expanded_icon: &'a str,
     leaf_icon: &'a str,
 
-    _comiler_happy: PhantomData<T>,
+    _phantom_data: PhantomData<T>,
 }
 
 impl<'a, T> TreeWidget<'a, T> {
@@ -41,7 +41,7 @@ impl<'a, T> TreeWidget<'a, T> {
             expanded_icon: "",
             leaf_icon: " ",
 
-            _comiler_happy: PhantomData
+            _phantom_data: PhantomData
         }
     }
 }

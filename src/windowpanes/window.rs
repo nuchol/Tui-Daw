@@ -113,7 +113,7 @@ impl WindowManager {
             // Splashscreen is id 0, should be more robust
             if old_id == 0 {
                 *node = LayoutNode::Window(new_id);
-                self.set_focuesed(new_id);
+                self.set_focused(new_id);
                 return true;
             }
 
@@ -124,7 +124,7 @@ impl WindowManager {
                 second: Box::new(LayoutNode::Window(new_id)),
             };
 
-            self.set_focuesed(new_id);
+            self.set_focused(new_id);
 
             return true;
         }
@@ -209,11 +209,11 @@ impl WindowManager {
         }
     }
 
-    pub fn set_focuesed(&mut self, id: usize) {
+    pub fn set_focused(&mut self, id: usize) {
         self.focused = Some(id);
     }
 
-    pub fn get_focuesed_mut(&mut self) -> Option<&mut Box<dyn Window>> {
+    pub fn get_focused_mut(&mut self) -> Option<&mut Box<dyn Window>> {
         let window_id = self.popup_stack.last();
         let focused = window_id.copied().or(self.focused);
 
@@ -226,14 +226,14 @@ impl WindowManager {
     }
 
     pub fn handle_universal(&mut self, cmd: UniversalCommand) {
-        let focused = self.get_focuesed_mut();
+        let focused = self.get_focused_mut();
         if let Some(window) = focused {
             window.handle_universal(cmd);
         }
     }
 
     pub fn handle_input(&mut self, cmd: LocalCommand) -> Option<EditorCommand> {
-        let focused = self.get_focuesed_mut();
+        let focused = self.get_focused_mut();
         if let Some(window) = focused {
             return window.handle_input(cmd);
         }
