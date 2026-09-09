@@ -1,9 +1,12 @@
 use crate::{
-    input::{Dir, Operator, UniversalCommand}, theme::{ResolvedTheme, ThemeKey}, widgets::tree::{
+    input::{Dir, Operator, UniversalCommand},
+    theme::{ResolvedTheme, ThemeKey},
+    widgets::tree::{
         node::{NodeId, NodeKind},
         state::TreeState,
         treewidget::TreeWidget,
-    }, windowpanes::{
+    },
+    windowpanes::{
         window::{Window, WindowPaneType},
         windowregistry::*,
     }
@@ -13,6 +16,7 @@ use crate::input::{EditorCommand, LocalCommand};
 
 use ratatui::{
     Frame,
+    crossterm::event::KeyCode,
     layout::{Constraint, Direction, Layout, Rect},
     widgets::Paragraph,
 };
@@ -99,9 +103,8 @@ impl Window for WindowSelect {
 
     fn handle_input(&mut self, cmd: LocalCommand) -> Option<EditorCommand> {
         match cmd {
-            // TODO: Confirm is both op and local command.
-            LocalCommand::Operator { count, motion, operator } => {
-                if operator == Operator::Confirm {
+            LocalCommand::KeyPress { count, key } => match key {
+                KeyCode::Enter => {
                     let node_id = self.tree_state.selected()?;
                     self.tree_state.toggle_expand(node_id).ok();
 
@@ -111,19 +114,9 @@ impl Window for WindowSelect {
                             display: self.pane_type,
                             window: func(),
                         })
-                } else { None }
-            },
-
-            LocalCommand::Confirm => {
-                let node_id = self.tree_state.selected()?;
-                self.tree_state.toggle_expand(node_id).ok();
-
-                self.tree_state.raw_selected()
-                    .and_then(|node| *node.data())
-                    .map(|func| EditorCommand::OpenWindow {
-                        display: self.pane_type,
-                        window: func(),
-                    })
+                },
+                
+                _ => None,
             },
 
             _ => None,

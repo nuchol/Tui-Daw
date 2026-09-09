@@ -16,7 +16,8 @@ const MIDI_MAX: u8 = 127;
 // Pulses Per Quarter Note (Ticks Per Beat)
 const PPQ: u32 = 960;
 const NOTE_NAMES: [&str; 12] = [
-    "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
+    "C", "C#", "D", "D#", "E", "F",
+    "F#", "G", "G#", "A", "A#", "B",
 ];
 
 struct Note {
@@ -169,10 +170,10 @@ impl Window for PianoRoll {
                 KeyCode::Char('s') => self.handle_motion(count, PianoRollMotion::Subdivision(Dir::Forward)),
                 KeyCode::Char('S') => self.handle_motion(count, PianoRollMotion::Subdivision(Dir::Backward)),
 
+                KeyCode::Enter => None,
+
                 _ => None,
             },
-
-            LocalCommand::Confirm => None,
         }
     }
 }

@@ -31,8 +31,6 @@ impl fmt::Display for Mode {
 pub enum Operator {
     Delete,
     Yank,
-    Undo,
-    Confirm,
 }
 
 #[derive(PartialEq, Eq)]
@@ -60,46 +58,27 @@ pub enum InputAction {
 
     SemanticOperation {
         count: u32,
-        motion: Option<Motion>,
+        motion: Motion,
         operator: Operator,
     },
 
     Universal(UniversalCommand),
+    Editor(EditorCommand),
     Command(String),
 }
 
 pub enum EditorCommand {
-    Undo { count: u32, },
-    Redo { count: u32, },
-    // Yank {
-    //     count: u32,
-    //     motion: Motion,
-    // },
-    // Paste {
-    //     count: u32,
-    //     motion: Motion,
-    // },
-    // Mute {
-    //     count: u32,
-    //     motion: Motion,
-    // },
-    // Solo {
-    //     count: u32,
-    //     motion: Motion,
-    // },
-    // Delete {
-    //     count: u32,
-    //     motion: Motion,
-    // },
-    // Bpm {
-    //     bpm: u32,
-    // },
+    Undo { count: u32 },
+    Redo { count: u32 },
     OpenWindow {
         display: WindowPaneType,
         window: Box<dyn Window>,
     },
     Theme(String),
     Quit,
+    // Yank { count: u32, motion: Motion },
+    // Paste { count: u32, motion: Motion },
+    // Delete { count: u32, motion: Motion },
 }
 
 pub enum UniversalCommand {
@@ -115,18 +94,8 @@ pub enum UniversalCommand {
 }
 
 pub enum LocalCommand {
-    KeyPress {
-        count: u32,
-        key: KeyCode,
-    },
-    Operator {
-        count: u32,
-        motion: Option<Motion>,
-        operator: Operator,
-    },
-
-    // TODO: Confirm is both op and local command.
-    Confirm,
+    KeyPress { count: u32, key: KeyCode },
+    Operator { count: u32, motion: Motion, operator: Operator },
 }
 
 pub enum ResolvedCommand {
@@ -168,9 +137,6 @@ impl Input {
             s.push_str(match op {
                 Operator::Delete => "d",
                 Operator::Yank => "y",
-                Operator::Undo => "u",
-
-                _ => "?",
             });
         }
 
@@ -237,17 +203,7 @@ impl Input {
                 None
             }
 
-            KeyCode::Char('u') => Some(InputAction::SemanticOperation {
-                count,
-                operator: Operator::Undo,
-                motion: None,                
-            }),
-
-            KeyCode::Enter => Some(InputAction::SemanticOperation {
-                count,
-                operator: Operator::Confirm,
-                motion: None,
-            }),
+            KeyCode::Char('u') => Some(InputAction::Editor(EditorCommand::Undo { count })),
 
             // Physical Motions (universal)
             KeyCode::Char('h') => Some(InputAction::Universal(UniversalCommand::Horizontal { count, dir: Dir::Backward, })),
@@ -269,6 +225,7 @@ impl Input {
     fn resolve_action(action: Option<InputAction>) -> Option<ResolvedCommand> {
         match action? {
             InputAction::Command(cmd) => Self::resolve_command(cmd),
+            InputAction::Editor(cmd) => Some(ResolvedCommand::Editor(cmd)),
             InputAction::Universal(cmd) => Some(ResolvedCommand::Universal(cmd)),
 
             InputAction::SemanticOperation { count, motion, operator } => Some(ResolvedCommand::Local(
