@@ -1,7 +1,7 @@
-use std::collections::HashMap;
-use std::fmt;
 use ratatui::crossterm::event::KeyCode;
 use ratatui::layout::Direction;
+use std::collections::HashMap;
+use std::fmt;
 
 use crate::log;
 use crate::windowpanes::{
@@ -11,7 +11,8 @@ use crate::windowpanes::{
 
 #[derive(Default)]
 pub enum Mode {
-    #[default] Normal,
+    #[default]
+    Normal,
     Insert,
     Command,
 }
@@ -26,33 +27,7 @@ impl fmt::Display for Mode {
     }
 }
 
-pub enum Move {
-    // Physical (universal)
-    Horizontal,
-    Vertical,
-    Next,
-
-    Start,
-    End,
-
-    // Semantic (per window)
-    Beat,
-    Bar,
-    Subdivision,
-}
-
-pub struct Motion {
-    pub move_type: Move,
-    pub dir: MoveDir,
-}
-
-impl Motion {
-    fn new(move_type: Move, dir: MoveDir) -> Self {
-        Self { move_type, dir, }
-    }
-}
-
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum Operator {
     Delete,
     Yank,
@@ -61,49 +36,103 @@ pub enum Operator {
 }
 
 #[derive(PartialEq, Eq)]
-pub enum MoveDir {
-    Forward = 1, 
+pub enum Dir {
+    Forward = 1,
     Backward = -1,
 }
 
+pub struct Motion {
+    pub key: KeyCode,
+    pub dir: Dir,
+}
+
+impl Motion {
+    pub fn new(key: KeyCode, dir: Dir) -> Self {
+        Self {key, dir}
+    }
+}
+
 pub enum InputAction {
-    Move {
+    KeyPress {
         count: u32,
-        motion: Option<Motion>,
-    },
-    
-    Operation {
-        count: u32,
-        operator: Operator,
-        motion: Option<Motion>,
+        key: KeyCode,
     },
 
+    SemanticOperation {
+        count: u32,
+        motion: Option<Motion>,
+        operator: Operator,
+    },
+
+    Universal(UniversalCommand),
     Command(String),
 }
 
 pub enum EditorCommand {
-    Yank   { count: u32, motion: Motion },
-    Paste  { count: u32, motion: Motion },
-    Undo   { count: u32, motion: Motion },
-    Redo   { count: u32, motion: Motion },
-    Mute   { count: u32, motion: Motion },
-    Solo   { count: u32, motion: Motion },
-    Delete { count: u32, motion: Motion },
-    Bpm { bpm: u32 },
-    OpenWindow { display: WindowPaneType, window: Box<dyn Window> },
-    Theme { theme: String },
+    Undo { count: u32, },
+    Redo { count: u32, },
+    // Yank {
+    //     count: u32,
+    //     motion: Motion,
+    // },
+    // Paste {
+    //     count: u32,
+    //     motion: Motion,
+    // },
+    // Mute {
+    //     count: u32,
+    //     motion: Motion,
+    // },
+    // Solo {
+    //     count: u32,
+    //     motion: Motion,
+    // },
+    // Delete {
+    //     count: u32,
+    //     motion: Motion,
+    // },
+    // Bpm {
+    //     bpm: u32,
+    // },
+    OpenWindow {
+        display: WindowPaneType,
+        window: Box<dyn Window>,
+    },
+    Theme(String),
     Quit,
 }
 
+pub enum UniversalCommand {
+    Horizontal { count: u32, dir: Dir },
+    Vertical { count: u32, dir: Dir },
+    Next { count: u32, dir: Dir },
+
+    Start,
+    End,
+
+    ScrollUp(u32),
+    ScrollDown(u32),
+}
+
 pub enum LocalCommand {
-    MoveLocalCursor { dx: i32, dy: i32 },
-    MoveByMotion { count: u32, motion: Motion },
+    KeyPress {
+        count: u32,
+        key: KeyCode,
+    },
+    Operator {
+        count: u32,
+        motion: Option<Motion>,
+        operator: Operator,
+    },
+
+    // TODO: Confirm is both op and local command.
     Confirm,
 }
 
 pub enum ResolvedCommand {
     Editor(EditorCommand),
-    Local(LocalCommand)
+    Universal(UniversalCommand),
+    Local(LocalCommand),
 }
 
 #[derive(Default)]
@@ -148,12 +177,10 @@ impl Input {
         s
     }
 
-    pub fn handle_keypress(
-        &mut self,
-        key: KeyCode
-    ) -> Option<ResolvedCommand> {
+    pub fn handle_keypress(&mut self, key: KeyCode) -> Option<ResolvedCommand> {
         if key == KeyCode::Esc {
             self.clear_op();
+            self.clear_command();
             self.mode = Mode::Normal;
             return None;
         }
@@ -164,26 +191,29 @@ impl Input {
             Mode::Command => self.handle_command_mode(key),
         };
 
+        if action.is_some() {
+            self.clear_op();
+            self.clear_command();
+        }
+
         Self::resolve_action(action)
     }
 
-    fn handle_normal_mode(
-        &mut self,
-        key: KeyCode,
-    ) -> Option<InputAction> {
+    fn handle_normal_mode(&mut self, key: KeyCode) -> Option<InputAction> {
+        let count = if self.count == 0 { 1 } else { self.count };
         match key {
             KeyCode::Char('i') => {
                 self.clear_op();
                 self.mode = Mode::Insert;
                 None
-            },
+            }
 
             KeyCode::Char(':') | KeyCode::Char(';') => {
                 self.clear_op();
                 self.clear_command();
                 self.mode = Mode::Command;
                 None
-            },
+            }
 
             KeyCode::Char('.') => {
                 // TODO: Repeat last command
@@ -192,8 +222,7 @@ impl Input {
 
             KeyCode::Char(c) if c.is_ascii_digit() => {
                 let d = c.to_digit(10).unwrap();
-                self.count = self.count
-                    .saturating_mul(10).saturating_add(d);
+                self.count = self.count.saturating_mul(10).saturating_add(d);
 
                 None
             }
@@ -208,169 +237,87 @@ impl Input {
                 None
             }
 
-            KeyCode::Char('u') => {
-                self.operator = Some(Operator::Undo);
-                self.emit_action(None)
-            }
+            KeyCode::Char('u') => Some(InputAction::SemanticOperation {
+                count,
+                operator: Operator::Undo,
+                motion: None,                
+            }),
 
-            KeyCode::Enter => {
-                self.operator = Some(Operator::Confirm);
-                self.emit_action(None)
-            }
+            KeyCode::Enter => Some(InputAction::SemanticOperation {
+                count,
+                operator: Operator::Confirm,
+                motion: None,
+            }),
 
             // Physical Motions (universal)
-            KeyCode::Char('h') => self.emit_action(Some(Motion::new(Move::Horizontal, MoveDir::Backward))),
-            KeyCode::Char('j') => self.emit_action(Some(Motion::new(Move::Vertical, MoveDir::Backward))),
-            KeyCode::Char('k') => self.emit_action(Some(Motion::new(Move::Vertical, MoveDir::Forward))),
-            KeyCode::Char('l') => self.emit_action(Some(Motion::new(Move::Horizontal, MoveDir::Forward))),
-            KeyCode::Char('n') => self.emit_action(Some(Motion::new(Move::Next, MoveDir::Forward))),
-            KeyCode::Char('N') => self.emit_action(Some(Motion::new(Move::Next, MoveDir::Backward))),
+            KeyCode::Char('h') => Some(InputAction::Universal(UniversalCommand::Horizontal { count, dir: Dir::Backward, })),
+            KeyCode::Char('j') => Some(InputAction::Universal(UniversalCommand::Vertical { count, dir: Dir::Backward, })),
+            KeyCode::Char('k') => Some(InputAction::Universal(UniversalCommand::Vertical { count, dir: Dir::Forward, })),
+            KeyCode::Char('l') => Some(InputAction::Universal(UniversalCommand::Horizontal { count, dir: Dir::Forward, })),
+            KeyCode::Char('n') => Some(InputAction::Universal(UniversalCommand::Next { count, dir: Dir::Forward, })),
+            KeyCode::Char('N') => Some(InputAction::Universal(UniversalCommand::Next { count, dir: Dir::Backward, })),
 
-            // TODO: Semantic Motions (implemented by window)
-            KeyCode::Char('w') => self.emit_action(Some(Motion::new(Move::Beat, MoveDir::Forward))),
-            KeyCode::Char('b') => self.emit_action(Some(Motion::new(Move::Beat, MoveDir::Backward))),
-            KeyCode::Char('W') => self.emit_action(Some(Motion::new(Move::Bar, MoveDir::Forward))),
-            KeyCode::Char('B') => self.emit_action(Some(Motion::new(Move::Bar, MoveDir::Backward))),
-            KeyCode::Char('s') => self.emit_action(Some(Motion::new(Move::Subdivision, MoveDir::Forward))),
-            KeyCode::Char('S') => self.emit_action(Some(Motion::new(Move::Subdivision, MoveDir::Backward))),
-
-            _ => None,
+            _ => Some(InputAction::KeyPress { count, key }),
         }
     }
 
-    fn emit_action(
-        &mut self,
-        motion: Option<Motion>,
-    ) -> Option<InputAction> {
-        let count = if self.count == 0 { 1 } else { self.count };
-
-        let action = match self.operator.take() {
-            Some(op) => InputAction::Operation {
-                count,
-                operator: op,
-                motion,
-            },
-
-            None => InputAction::Move {count, motion},
-        };
-
-        self.clear_op();
-        Some(action)
-    }
-
-    fn handle_insert_mode(
-        &mut self,
-        key: KeyCode
-    ) -> Option<InputAction> {
+    // TODO
+    fn handle_insert_mode(&mut self, key: KeyCode) -> Option<InputAction> {
         return None;
     }
 
-    fn resolve_action(
-        action: Option<InputAction>
-    ) -> Option<ResolvedCommand> {
-        match action {
-            Some(InputAction::Move { count, motion }) => {
-                Self::resolve_move(count, motion.unwrap())
-            }
+    fn resolve_action(action: Option<InputAction>) -> Option<ResolvedCommand> {
+        match action? {
+            InputAction::Command(cmd) => Self::resolve_command(cmd),
+            InputAction::Universal(cmd) => Some(ResolvedCommand::Universal(cmd)),
 
-            Some(InputAction::Operation {
-                count,
-                operator,
-                motion,
-            }) => Self::resolve_operation(count, operator, motion),
+            InputAction::SemanticOperation { count, motion, operator } => Some(ResolvedCommand::Local(
+                LocalCommand::Operator { count, motion, operator }
+            )),
 
-            Some(InputAction::Command(cmd)) => Self::resolve_command(cmd),
-
-            None => None
+            InputAction::KeyPress { count, key } => Some(ResolvedCommand::Local(
+                LocalCommand::KeyPress {count, key }
+            )),
         }
     }
 
-    fn resolve_move(
-        count: u32,
-        motion: Motion,
-    ) -> Option<ResolvedCommand> {
-        let cmd = match motion.move_type {
-            Move::Vertical => LocalCommand::MoveLocalCursor { dx: 0, dy: count as i32 * motion.dir as i32 },
-            Move::Horizontal => LocalCommand::MoveLocalCursor { dx: count as i32 * motion.dir as i32, dy: 0 },
-
-            // Any motion that must be handled by window.
-            _ => LocalCommand::MoveByMotion { count, motion },
-        };
-
-        Some(ResolvedCommand::Local(cmd))
-    }
-
-    fn resolve_operation(
-        count: u32,
-        operator: Operator,
-        motion: Option<Motion>,
-    ) -> Option<ResolvedCommand> {
-        match operator {
-            // Operator::Delete => Some(ResolvedCommand::Editor(
-            //     EditorCommand::Delete { count, motion }
-            // )),
-            //
-            // Operator::Yank => Some(ResolvedCommand::Editor(
-            //     EditorCommand::Yank { count, motion }
-            // )),
-            //
-            // Operator::Mute => Some(ResolvedCommand::Editor(
-            //     EditorCommand::Mute { count, motion }
-            // )),
-
-            Operator::Confirm => Some(
-                ResolvedCommand::Local(LocalCommand::Confirm)
-            ),
-
-            _ => None,
-        }
-    }
-
-    fn resolve_command(
-        command: String,
-    ) -> Option<ResolvedCommand> {
+    fn resolve_command(command: String) -> Option<ResolvedCommand> {
         let tokens: Vec<&str> = command.split(' ').collect();
         match tokens[0] {
             "q" | "quit" => Some(ResolvedCommand::Editor(EditorCommand::Quit)),
 
             // We want to split accross the opposite direction since
             // splitting adds another window on the 'direction' axis.
-            "vsplit" => Some(ResolvedCommand::Editor(
-                EditorCommand::OpenWindow { 
-                    display: WindowPaneType::Popup,
-                    window: Box::new(WindowSelect::new(
-                        WindowPaneType::Direction { direction: Direction::Horizontal }
-                    ))
-                }
-            )),
+            "vsplit" => Some(ResolvedCommand::Editor(EditorCommand::OpenWindow {
+                display: WindowPaneType::Popup,
+                window: Box::new(WindowSelect::new(WindowPaneType::Direction {
+                    direction: Direction::Horizontal,
+                })),
+            })),
 
-            "hsplit" => Some(ResolvedCommand::Editor(
-                EditorCommand::OpenWindow { 
-                    display: WindowPaneType::Popup,
-                    window: Box::new(WindowSelect::new(
-                        WindowPaneType::Direction { direction: Direction::Vertical }
-                    ))
-                }
-            )),
+            "hsplit" => Some(ResolvedCommand::Editor(EditorCommand::OpenWindow {
+                display: WindowPaneType::Popup,
+                window: Box::new(WindowSelect::new(WindowPaneType::Direction {
+                    direction: Direction::Vertical,
+                })),
+            })),
 
             // TODO: Clearly not good
-            "theme" => Some(ResolvedCommand::Editor(
-                EditorCommand::Theme { theme: tokens[1].to_string() }
-            )),
+            "theme" => Some(ResolvedCommand::Editor(EditorCommand::Theme(
+                tokens[1].to_string(),
+            ))),
 
             _ => {
                 log::log(
                     format!("Not a recognised command: {}", command.as_str()),
-                    log::LogLevel::ERROR);
+                    log::LogLevel::ERROR,
+                );
                 None
-            },
+            }
         }
     }
 
-    fn handle_command_mode(
-        &mut self,
-        key: KeyCode
-    ) -> Option<InputAction> {
+    fn handle_command_mode(&mut self, key: KeyCode) -> Option<InputAction> {
         match key {
             KeyCode::Enter => {
                 let cmd = self.command_buffer.clone();
@@ -412,13 +359,11 @@ impl Input {
             }
 
             KeyCode::Right => {
-                self.command_cursor = (self.command_cursor + 1)
-                    .min(self.command_buffer.len());
+                self.command_cursor = (self.command_cursor + 1).min(self.command_buffer.len());
                 None
             }
 
-            _ => None
+            _ => None,
         }
     }
 }
-

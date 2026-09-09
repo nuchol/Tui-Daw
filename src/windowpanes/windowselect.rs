@@ -1,11 +1,9 @@
 use crate::{
-    theme::{ResolvedTheme, ThemeKey},
-    widgets::tree::{
+    input::{Dir, Operator, UniversalCommand}, theme::{ResolvedTheme, ThemeKey}, widgets::tree::{
         node::{NodeId, NodeKind},
         state::TreeState,
-        treewiddget::TreeWidget,
-    },
-    windowpanes::{
+        treewidget::TreeWidget,
+    }, windowpanes::{
         window::{Window, WindowPaneType},
         windowregistry::*,
     }
@@ -101,16 +99,19 @@ impl Window for WindowSelect {
 
     fn handle_input(&mut self, cmd: LocalCommand) -> Option<EditorCommand> {
         match cmd {
-            LocalCommand::MoveLocalCursor { dx: _, dy } => {
-                let count = dy.abs() as usize;
+            // TODO: Confirm is both op and local command.
+            LocalCommand::Operator { count, motion, operator } => {
+                if operator == Operator::Confirm {
+                    let node_id = self.tree_state.selected()?;
+                    self.tree_state.toggle_expand(node_id).ok();
 
-                if dy < 0 {
-                    self.tree_state.select_next(count);
-                } else {
-                    self.tree_state.select_prev(count);
-                }
-
-                None
+                    self.tree_state.raw_selected()
+                        .and_then(|node| *node.data())
+                        .map(|func| EditorCommand::OpenWindow {
+                            display: self.pane_type,
+                            window: func(),
+                        })
+                } else { None }
             },
 
             LocalCommand::Confirm => {
@@ -126,6 +127,20 @@ impl Window for WindowSelect {
             },
 
             _ => None,
+        }
+    }
+
+    fn handle_universal(&mut self, cmd: UniversalCommand) {
+        match cmd {
+            UniversalCommand::Vertical { count, dir } => {
+                if dir == Dir::Backward {
+                    self.tree_state.select_next(count as usize);
+                } else {
+                    self.tree_state.select_prev(count as usize);
+                }
+            },
+
+            _ => (),
         }
     }
 }

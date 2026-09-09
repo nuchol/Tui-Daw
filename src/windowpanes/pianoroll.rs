@@ -1,15 +1,15 @@
 use ratatui::{
-    Frame,
-    buffer::Buffer,
+    Frame, buffer::Buffer,
+    crossterm::event::KeyCode,
     layout::Rect,
     style::Style,
     widgets::StatefulWidget
 };
 
 use crate::{
-    input::{LocalCommand, EditorCommand, Motion, Move, MoveDir},
+    input::{Dir, EditorCommand, LocalCommand, UniversalCommand},
     theme::{ResolvedTheme, ThemeKey},
-    windowpanes::window::Window,
+    windowpanes::window::Window
 };
 
 const MIDI_MAX: u8 = 127;
@@ -32,7 +32,9 @@ struct Pattern {
 }
 
 enum PianoRollMotion {
-
+    Beat(Dir),
+    Bar(Dir),
+    Subdivision(Dir),
 }
 
 pub struct PianoRoll {
@@ -79,40 +81,37 @@ impl PianoRoll {
         notes
     }
 
-    fn handle_motion(&mut self, count: u32, motion: Motion) {
+    fn handle_motion(&mut self, count: u32, motion: PianoRollMotion) -> Option<EditorCommand> {
         let (mut x, mut y) = self.cursor;
 
         // ticks/bar = ticks/beat * beats/bar;
         let ticks_per_bar = self.beats_per_bar as u32 * self.ticks_per_beat;
-        match motion.move_type {
+        match motion {
             // Motion::Bar => x += ticks_per_bar,
-            Move::Bar => x = (x / ticks_per_bar)
-                .saturating_add_signed(count as i32 * motion.dir as i32)
+            PianoRollMotion::Bar(dir) => x = (x / ticks_per_bar)
+                .saturating_add_signed(count as i32 * dir as i32)
                 * ticks_per_bar,
 
-            // Go to next note (n/N)
-            Move::Next => x = self.get_next_note(self.cursor_pitch(), motion.dir)
-                .map_or(self.cursor.0, |n| n.start_tick),
 
-            Move::Beat => x = (x / self.ticks_per_beat)
-                .saturating_add_signed(count as i32 * motion.dir as i32)
+            PianoRollMotion::Beat(dir) => x = (x / self.ticks_per_beat)
+                .saturating_add_signed(count as i32 * dir as i32)
                 * self.ticks_per_beat,
 
-            Move::Subdivision => (),
-
-            _ => return,
+            PianoRollMotion::Subdivision(dir) => (),
         };
 
+
         self.cursor = (x, y);
+        None
     }
 
-    fn get_next_note(&self, pitch: u8, dir: MoveDir) -> Option<&Note> {
+    fn get_next_note(&self, pitch: u8, dir: Dir) -> Option<&Note> {
         match dir {
-            MoveDir::Forward => {
+            Dir::Forward => {
                 let split = self.notes.partition_point(|n| n.start_tick <= self.cursor.0);
                 self.notes[split..].iter().find(|n| n.pitch == pitch)
             }
-            MoveDir::Backward => {
+            Dir::Backward => {
                 let split = self.notes.partition_point(|n| n.start_tick < self.cursor.0);
                 self.notes[..split].iter().rev().find(|n| n.pitch == pitch)
             }
@@ -135,24 +134,45 @@ impl Window for PianoRoll {
             self,
         );
     }
+    
+    fn handle_universal(&mut self, cmd: UniversalCommand) {
+        let ticks_per_cell = (PPQ / self.cells_per_beat as u32) as i32;
+        match cmd {
+            UniversalCommand::Horizontal { count, dir } => {
+                let dx = count as i32 * dir as i32;
+                self.cursor.0 = self.cursor.0.saturating_add_signed(dx * ticks_per_cell);
+            },
+
+            UniversalCommand::Vertical { count, dir } => {
+                let dy = count as i32 * dir as i32;
+                self.cursor.1 = (self.cursor.1 as i32 - dy)
+                                .clamp(0, i8::MAX as i32) as u8;
+            },
+
+            // Go to next note (n/N)
+            UniversalCommand::Next { count, dir } => self.cursor.0 = 
+                self.get_next_note(self.cursor_pitch(), dir)
+                    .map_or(self.cursor.0, |n| n.start_tick),
+
+            _ => ()
+        }
+    }
 
     fn handle_input(&mut self, cmd: LocalCommand) -> Option<EditorCommand> {
         match cmd {
-            LocalCommand::MoveLocalCursor { dx, dy } => {
-                let ticks_per_cell = (PPQ / self.cells_per_beat as u32) as i32;
-                self.cursor.0 = self.cursor.0.saturating_add_signed(dx * ticks_per_cell);
-                self.cursor.1 = (self.cursor.1 as i32 - dy)
-                                .clamp(0, i8::MAX as i32) as u8;
+            LocalCommand::Operator { .. } => None,
+            LocalCommand::KeyPress { count, key } => match key {
+                KeyCode::Char('w') => self.handle_motion(count, PianoRollMotion::Beat(Dir::Forward)),
+                KeyCode::Char('b') => self.handle_motion(count, PianoRollMotion::Beat(Dir::Backward)),
+                KeyCode::Char('W') => self.handle_motion(count, PianoRollMotion::Bar(Dir::Forward)),
+                KeyCode::Char('B') => self.handle_motion(count, PianoRollMotion::Bar(Dir::Backward)),
+                KeyCode::Char('s') => self.handle_motion(count, PianoRollMotion::Subdivision(Dir::Forward)),
+                KeyCode::Char('S') => self.handle_motion(count, PianoRollMotion::Subdivision(Dir::Backward)),
 
-                None
+                _ => None,
             },
 
-            LocalCommand::MoveByMotion { count, motion } => {
-                self.handle_motion(count, motion);
-                None
-            },
-
-            _ => None,
+            LocalCommand::Confirm => None,
         }
     }
 }
@@ -178,9 +198,9 @@ impl PianoRollWidget {
                 theme.get(ThemeKey::PianoRollWhiteKeyPressed)),
             black_style: (theme.get(ThemeKey::PianoRollBlackKey),
                 theme.get(ThemeKey::PianoRollBlackKeyPressed)),
-            bar_div_style: theme.get(ThemeKey::PainoRollBeatSeparator),
-            beat_div_style: theme.get(ThemeKey::PainoRollBeatSeparator),
-            sub_div_style: theme.get(ThemeKey::PainoRollSubDivSeparator),
+            bar_div_style: theme.get(ThemeKey::PianoRollBeatSeparator),
+            beat_div_style: theme.get(ThemeKey::PianoRollBeatSeparator),
+            sub_div_style: theme.get(ThemeKey::PianoRollSubDivSeparator),
             note_style: theme.get(ThemeKey::PianoRollNote),
             note_accent_style: theme.get(ThemeKey::PianoRollNoteAccent),
             white_names: true,
@@ -282,8 +302,6 @@ impl PianoRollWidget {
                 let y = area.y + row;
                 let cell = &mut buf[(x, y)];
 
-                // Only stamp the line glyph on empty background cells so that note
-                // blocks drawn later can freely overwrite it.
                 if cell.symbol() == " " {
                     cell.set_style(style);
                     cell.set_char(line_char);
@@ -333,10 +351,14 @@ impl PianoRollWidget {
             let y = area.y + row as u16;
 
             let ticks_per_cell = PPQ as u16 / state.cells_per_beat;
-            let start_cell = Self::ticks_to_cells(note.start_tick - state.scroll.0, state);
+            let start_cell = Self::ticks_to_cells(
+                note.start_tick.saturating_sub(state.scroll.0),
+                state,
+            );
             let length = (note.duration as u16 / ticks_per_cell).max(1);
 
             // note is not visible
+            // TODO: start_cell + length <= 0 is always false
             if start_cell + length <= 0 || start_cell >= area.width {
                 continue;
             }
@@ -399,10 +421,14 @@ impl StatefulWidget for PianoRollWidget {
         self.render_vertical_lines(grid_area, buf, state);
         self.render_notes(grid_area, buf, state);
 
-        let cursor_x = Self::ticks_to_cells(state.cursor.0 - state.scroll.0, state);
+        let cursor_x = Self::ticks_to_cells(
+            state.cursor.0.saturating_sub(state.scroll.0),
+            state
+        );
+
         buf[(cursor_x + grid_area.x, state.cursor.1 as u16 + grid_area.y)]
-            .set_style(self.cursor_style)
-            .set_char(' ');
+            .set_style(self.cursor_style);
+            // .set_char(' ');
     }
 }
 
