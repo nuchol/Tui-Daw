@@ -7,9 +7,7 @@ use ratatui::{
 };
 
 use crate::{
-    input::{Dir, EditorCommand, LocalCommand, UniversalCommand},
-    theme::{ResolvedTheme, ThemeKey},
-    windowpanes::window::Window
+    input::{Dir, EditorCommand, LocalCommand, UniversalCommand}, log::log, theme::{ResolvedTheme, ThemeKey}, windowpanes::window::Window
 };
 
 const MIDI_MAX: u8 = 127;
@@ -74,6 +72,10 @@ impl PianoRoll {
         (self.ticks_per_beat / self.cells_per_beat as u32).max(1)
     }
 
+    fn cells_per_bar(&self) -> u16 {
+        self.cells_per_beat * self.beats_per_bar
+    }
+
     fn test_notes() -> Vec<Note> {
         let mut notes = vec![
             Note {pitch: 67, start_tick: PPQ * 0, duration: PPQ * 4},
@@ -81,22 +83,23 @@ impl PianoRoll {
             Note {pitch: 69, start_tick: PPQ * 7, duration: PPQ * 6},
             Note {pitch: 70, start_tick: PPQ * 9, duration: PPQ * 1},
             Note {pitch: 71, start_tick: PPQ * 11, duration: PPQ * 5},
-            Note {pitch: 68, start_tick: PPQ * 1, duration: (PPQ as f32 * 0.5) as u32},
+            Note {pitch: 68, start_tick: PPQ * 1, duration: PPQ / 2},
             Note {pitch: 60, start_tick: PPQ * 2, duration: PPQ * 2},
         ];
         notes.sort_by(|a, b| a.start_tick.cmp(&b.start_tick));
         notes
     }
 
-    fn sync_scroll(&mut self) {
+    fn sync_scroll(&mut self, padding: u32) {
         let cursor_cell = self.cursor.0 / self.ticks_per_cell();
         let mut first_cell = self.scroll.0 / self.ticks_per_cell();
         let last_cell = first_cell + self.viewport.0 as u32 - 1;
-
-        if cursor_cell < first_cell {
-            first_cell = cursor_cell;
-        } else if cursor_cell > last_cell {
-            first_cell = cursor_cell - self.viewport.0 as u32;
+        
+        // Could probably be better
+        if cursor_cell < first_cell + padding {
+            first_cell = cursor_cell.saturating_sub(padding);
+        } else if cursor_cell > last_cell.saturating_sub(padding) {
+            first_cell = cursor_cell + padding - self.viewport.0 as u32;
         }
 
         self.scroll.0 = first_cell * self.ticks_per_cell();
@@ -230,9 +233,9 @@ impl StatefulWidget for PianoRollWidget {
         };
         
         state.viewport = (grid_area.width, grid_area.height);
-        state.sync_scroll();
+        state.sync_scroll(state.cells_per_bar() as u32);
 
-        let barnum_area = Rect {
+        let bar_num_area = Rect {
             y: area.y,
             height: bar_number_height,
             ..grid_area
@@ -244,7 +247,7 @@ impl StatefulWidget for PianoRollWidget {
             ..grid_area
         };
 
-        self.render_bar_numbers(barnum_area, buf, state);
+        self.render_bar_numbers(bar_num_area, buf, state);
         self.render_piano_keys(keys_area, buf, state);
         self.render_vertical_lines(grid_area, buf, state);
         self.render_notes(grid_area, buf, state);
@@ -283,6 +286,7 @@ impl PianoRollWidget {
         (tick / ticks_per_cell) as u16
     }
 
+    // TDOD: Fix scrolling
     fn render_piano_keys(&self, area: Rect, buf: &mut Buffer, state: &PianoRoll) {
         for row in 0..area.height {
             // TODO: Remove hard coding
