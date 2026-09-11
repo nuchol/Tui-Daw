@@ -35,6 +35,7 @@ struct Pattern {
 enum PianoRollMotion {
     Beat(Dir),
     Bar(Dir),
+    End(Dir),
     Subdivision(Dir),
 }
 
@@ -44,6 +45,7 @@ pub struct PianoRoll {
     note_size: u32, // in ticks
     zoom: u8,
     scroll: (u32, u8), // (ticks, notes)
+    viewport: (u16, u16),
     cells_per_beat: u16,
     beats_per_bar: u16,
     ticks_per_beat: u32,
@@ -57,6 +59,7 @@ impl PianoRoll {
             notes: Self::test_notes(),
             zoom: 1,
             scroll: (0, 50),
+            viewport: (0, 0),
             cells_per_beat: 4,
             beats_per_bar: 4,
             ticks_per_beat: PPQ,
@@ -67,6 +70,10 @@ impl PianoRoll {
         MIDI_MAX - (self.cursor.1 + self.scroll.1)
     }
 
+    fn ticks_per_cell(&self) -> u32 {
+        (self.ticks_per_beat / self.cells_per_beat as u32).max(1)
+    }
+
     fn test_notes() -> Vec<Note> {
         let mut notes = vec![
             Note {pitch: 67, start_tick: PPQ * 0, duration: PPQ * 4},
@@ -74,21 +81,32 @@ impl PianoRoll {
             Note {pitch: 69, start_tick: PPQ * 7, duration: PPQ * 6},
             Note {pitch: 70, start_tick: PPQ * 9, duration: PPQ * 1},
             Note {pitch: 71, start_tick: PPQ * 11, duration: PPQ * 5},
-
-            // Note {pitch: 68, start_tick: PPQ * 1, duration: (PPQ as f32 * 0.5) as u32},
-            // Note {pitch: 60, start_tick: PPQ * 2, duration: PPQ * 2},
+            Note {pitch: 68, start_tick: PPQ * 1, duration: (PPQ as f32 * 0.5) as u32},
+            Note {pitch: 60, start_tick: PPQ * 2, duration: PPQ * 2},
         ];
         notes.sort_by(|a, b| a.start_tick.cmp(&b.start_tick));
         notes
     }
 
+    fn sync_scroll(&mut self) {
+        let cursor_cell = self.cursor.0 / self.ticks_per_cell();
+        let mut first_cell = self.scroll.0 / self.ticks_per_cell();
+        let last_cell = first_cell + self.viewport.0 as u32 - 1;
+
+        if cursor_cell < first_cell {
+            first_cell = cursor_cell;
+        } else if cursor_cell > last_cell {
+            first_cell = cursor_cell - self.viewport.0 as u32;
+        }
+
+        self.scroll.0 = first_cell * self.ticks_per_cell();
+    }
+
     fn handle_motion(&mut self, count: u32, motion: PianoRollMotion) -> Option<EditorCommand> {
         let (mut x, mut y) = self.cursor;
 
-        // ticks/bar = ticks/beat * beats/bar;
         let ticks_per_bar = self.beats_per_bar as u32 * self.ticks_per_beat;
         match motion {
-            // Motion::Bar => x += ticks_per_bar,
             PianoRollMotion::Bar(dir) => x = (x / ticks_per_bar)
                 .saturating_add_signed(count as i32 * dir as i32)
                 * ticks_per_bar,
@@ -99,8 +117,12 @@ impl PianoRoll {
                 * self.ticks_per_beat,
 
             PianoRollMotion::Subdivision(dir) => (),
-        };
 
+            // TODO: needs to find next note end not next note start.
+            PianoRollMotion::End(dir) => x = 
+                self.get_next_note(self.cursor_pitch(), dir)
+                    .map_or(self.cursor.0, |n| n.start_tick.saturating_add(n.duration)),
+        };
 
         self.cursor = (x, y);
         None
@@ -167,6 +189,8 @@ impl Window for PianoRoll {
                 KeyCode::Char('b') => self.handle_motion(count, PianoRollMotion::Beat(Dir::Backward)),
                 KeyCode::Char('W') => self.handle_motion(count, PianoRollMotion::Bar(Dir::Forward)),
                 KeyCode::Char('B') => self.handle_motion(count, PianoRollMotion::Bar(Dir::Backward)),
+                KeyCode::Char('e') => self.handle_motion(count, PianoRollMotion::End(Dir::Forward)),
+                KeyCode::Char('E') => self.handle_motion(count, PianoRollMotion::End(Dir::Backward)),
                 KeyCode::Char('s') => self.handle_motion(count, PianoRollMotion::Subdivision(Dir::Forward)),
                 KeyCode::Char('S') => self.handle_motion(count, PianoRollMotion::Subdivision(Dir::Backward)),
 
@@ -191,6 +215,52 @@ pub struct PianoRollWidget {
     black_names: bool,
 }
 
+impl StatefulWidget for PianoRollWidget {
+    type State = PianoRoll;
+
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        let key_width = 7;
+        let bar_number_height = 1;
+
+        let grid_area = Rect {
+            y: area.y + bar_number_height,
+            x: area.x + key_width,
+            width: area.width - key_width,
+            height: area.height - bar_number_height,
+        };
+        
+        state.viewport = (grid_area.width, grid_area.height);
+        state.sync_scroll();
+
+        let barnum_area = Rect {
+            y: area.y,
+            height: bar_number_height,
+            ..grid_area
+        };
+
+        let keys_area = Rect {
+            x: area.x,
+            width: key_width,
+            ..grid_area
+        };
+
+        self.render_bar_numbers(barnum_area, buf, state);
+        self.render_piano_keys(keys_area, buf, state);
+        self.render_vertical_lines(grid_area, buf, state);
+        self.render_notes(grid_area, buf, state);
+
+        let cursor_x = Self::ticks_to_cells(
+            state.cursor.0.saturating_sub(state.scroll.0),
+            state
+        );
+
+        buf[(cursor_x + grid_area.x, state.cursor.1 as u16 + grid_area.y)]
+            .set_style(self.cursor_style);
+            // .set_char(' ');
+    }
+}
+
+
 impl PianoRollWidget {
     pub fn new(theme: &ResolvedTheme) -> Self {
         Self {
@@ -208,33 +278,6 @@ impl PianoRollWidget {
             black_names: false,
         }
     }
-
-    pub fn white_style(mut self, style: (Style, Style)) -> Self {
-        self.white_style = style;
-        self
-    }
-
-    pub fn black_style(mut self, style: (Style, Style)) -> Self {
-        self.black_style = style;
-        self
-    }
-
-    pub fn render_note_names(mut self, white: bool, black: bool) -> Self {
-        self.white_names = white;
-        self.black_names = black;
-        self
-    }
-
-    pub fn render_white_note_names(mut self, render: bool) -> Self {
-        self.white_names = render;
-        self
-    }
-
-    pub fn render_black_note_names(mut self, render: bool) -> Self {
-        self.black_names = render;
-        self
-    }
-
     fn ticks_to_cells(tick: u32, state: &PianoRoll) -> u16 {
         let ticks_per_cell = PPQ / state.cells_per_beat as u32;
         (tick / ticks_per_cell) as u16
@@ -389,48 +432,33 @@ impl PianoRollWidget {
             }
         }
     }
-}
 
-impl StatefulWidget for PianoRollWidget {
-    type State = PianoRoll;
-
-    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        let key_width = 7;
-        let bar_number_height = 1;
-
-        let grid_area = Rect {
-            y: area.y + bar_number_height,
-            x: area.x + key_width,
-            width: area.width - key_width,
-            height: area.height - bar_number_height,
-        };
-
-        let barnum_area = Rect {
-            y: area.y,
-            height: bar_number_height,
-            ..grid_area
-        };
-
-        let keys_area = Rect {
-            x: area.x,
-            width: key_width,
-            ..grid_area
-        };
-
-        self.render_bar_numbers(barnum_area, buf, state);
-        self.render_piano_keys(keys_area, buf, state);
-        self.render_vertical_lines(grid_area, buf, state);
-        self.render_notes(grid_area, buf, state);
-
-        let cursor_x = Self::ticks_to_cells(
-            state.cursor.0.saturating_sub(state.scroll.0),
-            state
-        );
-
-        buf[(cursor_x + grid_area.x, state.cursor.1 as u16 + grid_area.y)]
-            .set_style(self.cursor_style);
-            // .set_char(' ');
+    pub fn white_style(mut self, style: (Style, Style)) -> Self {
+        self.white_style = style;
+        self
     }
+
+    pub fn black_style(mut self, style: (Style, Style)) -> Self {
+        self.black_style = style;
+        self
+    }
+
+    pub fn render_note_names(mut self, white: bool, black: bool) -> Self {
+        self.white_names = white;
+        self.black_names = black;
+        self
+    }
+
+    pub fn render_white_note_names(mut self, render: bool) -> Self {
+        self.white_names = render;
+        self
+    }
+
+    pub fn render_black_note_names(mut self, render: bool) -> Self {
+        self.black_names = render;
+        self
+    }
+
 }
 
 
