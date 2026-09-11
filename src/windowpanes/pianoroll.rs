@@ -281,6 +281,7 @@ impl PianoRollWidget {
             black_names: false,
         }
     }
+
     fn ticks_to_cells(tick: u32, state: &PianoRoll) -> u16 {
         let ticks_per_cell = PPQ / state.cells_per_beat as u32;
         (tick / ticks_per_cell) as u16
@@ -391,30 +392,27 @@ impl PianoRollWidget {
         for note in &state.notes {
             let row = MIDI_MAX as i32 - (state.scroll.1 as i32 + note.pitch as i32);
 
-            // note's pitch is not visible
-            if row < 0 || row > area.height as i32 {
-                continue;
-            }
-
-            let y = area.y + row as u16;
-
-            let ticks_per_cell = PPQ as u16 / state.cells_per_beat;
-            let start_cell = Self::ticks_to_cells(
-                note.start_tick.saturating_sub(state.scroll.0),
-                state,
-            );
-            let length = (note.duration as u16 / ticks_per_cell).max(1);
+            let ticks_per_cell = PPQ / state.cells_per_beat as u32;
+            
+            let end_cell = ((note.start_tick + note.duration) as i32 - state.scroll.0 as i32)
+                / ticks_per_cell as i32;
+            let start_cell = (note.start_tick as i32 - state.scroll.0 as i32)
+                / ticks_per_cell as i32;
 
             // note is not visible
-            // TODO: start_cell + length <= 0 is always false
-            if start_cell + length <= 0 || start_cell >= area.width {
+            if row < 0 || row > area.height as i32 
+                || end_cell <= 0 || start_cell > area.width as i32 {
                 continue;
             }
 
+            let visible_cells = 0.max(end_cell.max(area.width as i32) - start_cell.max(0));
+            log(format!("Visible: {}", visible_cells), crate::log::LogLevel::INFO);
+            
             let note_name = NOTE_NAMES[(note.pitch % 12) as usize];
             let octave = (note.pitch as i32 / 12) - 1;
             let label_len = note_name.len() + octave.to_string().len() + 1;
 
+            let length = Self::ticks_to_cells(note.duration, state);
             let label = if label_len > length as usize {
                 "▌".into()
             } else {
@@ -423,10 +421,12 @@ impl PianoRollWidget {
 
             let note_str = format!("{label:<length$}", length = length as usize);
 
+            let y = area.y + row as u16;
+
             let mut style = self.note_accent_style;
             for (i, ch) in note_str.chars().enumerate() {
                 if i != 0 { style = self.note_style; }
-                let x = area.x + start_cell + i as u16;
+                let x = area.x + start_cell as u16 + i as u16;
 
                 if x < area.x + area.width {
                     buf[(x, y)]
