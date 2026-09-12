@@ -1,13 +1,16 @@
 use ratatui::{
     Frame, buffer::Buffer,
-    crossterm::event::KeyCode,
+    crossterm::{event::KeyCode},
     layout::Rect,
     style::Style,
     widgets::StatefulWidget
 };
 
 use crate::{
-    input::{Dir, EditorCommand, LocalCommand, UniversalCommand}, log::log, theme::{ResolvedTheme, ThemeKey}, windowpanes::window::Window
+    input::{Dir, EditorCommand, LocalCommand, UniversalCommand},
+    theme::{ResolvedTheme, ThemeKey},
+    windowpanes::window::Window,
+    log::log,
 };
 
 const MIDI_MAX: u8 = 127;
@@ -52,11 +55,11 @@ pub struct PianoRoll {
 impl PianoRoll {
     pub fn new() -> Self {
         Self {
-            cursor: (0, 10),
+            cursor: (0, 67),
             note_size: 4,
             notes: Self::test_notes(),
             zoom: 1,
-            scroll: (0, 50),
+            scroll: (0, 45),
             viewport: (0, 0),
             cells_per_beat: 4,
             beats_per_bar: 4,
@@ -90,19 +93,38 @@ impl PianoRoll {
         notes
     }
 
-    fn sync_scroll(&mut self, padding: u32) {
-        let cursor_cell = self.cursor.0 / self.ticks_per_cell();
-        let mut first_cell = self.scroll.0 / self.ticks_per_cell();
-        let last_cell = first_cell + self.viewport.0 as u32 - 1;
+    fn sync_scroll(&mut self, padding: (u32, u8)) {
+        let (width, height) = self.viewport;
+        if width == 0 || height == 0 { return; }
+
+        let tpc = self.ticks_per_cell();
+
+        // Horizontal Scrolling
+        let pad_x = padding.0.min((width - 1) as u32 / 2);
+        let cursor_x = self.cursor.0 / tpc;
+        let mut first_x = self.scroll.0 / tpc;
         
-        // Could probably be better
-        if cursor_cell < first_cell + padding {
-            first_cell = cursor_cell.saturating_sub(padding);
-        } else if cursor_cell > last_cell.saturating_sub(padding) {
-            first_cell = cursor_cell + padding - self.viewport.0 as u32;
+        if cursor_x < first_x + pad_x {
+            first_x = cursor_x.saturating_sub(pad_x);
+        } else if cursor_x + pad_x >= first_x + width as u32 {
+            first_x = (cursor_x + pad_x + 1).saturating_sub(width as u32);
         }
 
-        self.scroll.0 = first_cell * self.ticks_per_cell();
+        self.scroll.0 = first_x * tpc;
+
+        // Vertical Scrolling
+        let rows = MIDI_MAX as u16 + 1;
+        let pad_y = (padding.1 as u16).min((width - 1) / 2);
+        let cursor_y = self.cursor.1 as u16;
+        let mut first_y = self.scroll.1 as u16;
+
+        if cursor_y < first_y + pad_y {
+            first_y = cursor_y.saturating_sub(pad_y);
+        } else if cursor_y + pad_y >= first_y + height{
+            first_y = (cursor_y + pad_y + 1).saturating_sub(height)
+        }
+
+        self.scroll.1 = first_y.min(rows.saturating_sub(height)) as u8;
     }
 
     fn handle_motion(&mut self, count: u32, motion: PianoRollMotion) -> Option<EditorCommand> {
@@ -172,7 +194,7 @@ impl Window for PianoRoll {
             UniversalCommand::Vertical { count, dir } => {
                 let dy = count as i32 * dir as i32;
                 self.cursor.1 = (self.cursor.1 as i32 - dy)
-                                .clamp(0, i8::MAX as i32) as u8;
+                                .clamp(0, MIDI_MAX as i32) as u8;
             },
 
             // Go to next note (n/N)
@@ -233,7 +255,7 @@ impl StatefulWidget for PianoRollWidget {
         };
         
         state.viewport = (grid_area.width, grid_area.height);
-        state.sync_scroll(state.cells_per_bar() as u32);
+        state.sync_scroll((state.cells_per_bar() as u32, 5));
 
         let bar_num_area = Rect {
             y: area.y,
@@ -256,8 +278,9 @@ impl StatefulWidget for PianoRollWidget {
             state.cursor.0.saturating_sub(state.scroll.0),
             state
         );
+        let cursor_y = state.cursor.1.saturating_sub(state.scroll.1) as u16;
 
-        buf[(cursor_x + grid_area.x, state.cursor.1 as u16 + grid_area.y)]
+        buf[(cursor_x + grid_area.x, cursor_y + grid_area.y)]
             .set_style(self.cursor_style);
             // .set_char(' ');
     }
@@ -281,6 +304,7 @@ impl PianoRollWidget {
             black_names: false,
         }
     }
+
     fn ticks_to_cells(tick: u32, state: &PianoRoll) -> u16 {
         let ticks_per_cell = PPQ / state.cells_per_beat as u32;
         (tick / ticks_per_cell) as u16
@@ -298,8 +322,6 @@ impl PianoRollWidget {
             let note_name = NOTE_NAMES[note];
             let is_black = note_name.len() == 2;
 
-            let y = area.y + row;
-
             let label = format!("{}{}", note_name, octave);
             let offset_x = area.width - label.len() as u16 - (is_black as u16);
             let key_end = area.x + offset_x + label.len() as u16;
@@ -308,6 +330,7 @@ impl PianoRollWidget {
             let style = if pressed { base_style.1 } else { base_style.0 };
 
             // Background fill
+            let y = area.y + row;
             for x in area.x..(area.x + area.width) {
                 buf[(x, y)].set_style(
                     if x < key_end { style }
@@ -391,48 +414,42 @@ impl PianoRollWidget {
         for note in &state.notes {
             let row = MIDI_MAX as i32 - (state.scroll.1 as i32 + note.pitch as i32);
 
-            // note's pitch is not visible
-            if row < 0 || row > area.height as i32 {
-                continue;
-            }
-
-            let y = area.y + row as u16;
-
-            let ticks_per_cell = PPQ as u16 / state.cells_per_beat;
-            let start_cell = Self::ticks_to_cells(
-                note.start_tick.saturating_sub(state.scroll.0),
-                state,
-            );
-            let length = (note.duration as u16 / ticks_per_cell).max(1);
+            let start_cell = (note.start_tick as i32 - state.scroll.0 as i32)
+                / state.ticks_per_cell() as i32;
+            let end_cell = ((note.start_tick + note.duration) as i32 - state.scroll.0 as i32)
+                / state.ticks_per_cell() as i32;
 
             // note is not visible
-            // TODO: start_cell + length <= 0 is always false
-            if start_cell + length <= 0 || start_cell >= area.width {
+            if row < 0 || row >= area.height as i32 
+                || end_cell <= 0 || start_cell >= area.width as i32 {
                 continue;
             }
-
+            
             let note_name = NOTE_NAMES[(note.pitch % 12) as usize];
             let octave = (note.pitch as i32 / 12) - 1;
             let label_len = note_name.len() + octave.to_string().len() + 1;
 
-            let label = if label_len > length as usize {
+            let length = (end_cell - start_cell).max(1) as usize;
+            let label = if label_len > length {
                 "▌".into()
             } else {
                 format!("▌{}{}", note_name, octave)
             };
 
-            let note_str = format!("{label:<length$}", length = length as usize);
-
+            let note_str = format!("{label:<length$}");
             let mut style = self.note_accent_style;
+
+            let y = area.y + row as u16;
             for (i, ch) in note_str.chars().enumerate() {
                 if i != 0 { style = self.note_style; }
-                let x = area.x + start_cell + i as u16;
 
-                if x < area.x + area.width {
-                    buf[(x, y)]
-                        .set_char(ch)
-                        .set_style(style);
-                }
+                let x = start_cell + i as i32;
+                if x < 0 { continue; }
+                if x >= area.width as i32 { break; }
+
+                buf[(area.x + x as u16, y)]
+                    .set_char(ch)
+                    .set_style(style);
             }
         }
     }
@@ -462,7 +479,4 @@ impl PianoRollWidget {
         self.black_names = render;
         self
     }
-
 }
-
-
