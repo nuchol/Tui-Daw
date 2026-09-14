@@ -21,6 +21,7 @@ const NOTE_NAMES: [&str; 12] = [
     "F#", "G", "G#", "A", "A#", "B",
 ];
 
+#[derive(Clone, Debug)]
 struct Note {
     pitch: u8,
     start_tick: u32,
@@ -38,6 +39,8 @@ enum PianoRollMotion {
     Bar(Dir),
     End(Dir),
     Subdivision(Dir),
+
+    Note,
 }
 
 pub struct PianoRoll {
@@ -57,7 +60,8 @@ impl PianoRoll {
         Self {
             cursor: (0, 67),
             note_size: 4,
-            notes: Self::test_notes(),
+            // notes: Self::test_notes(),
+            notes: Vec::new(),
             zoom: 1,
             scroll: (0, 45),
             viewport: (0, 0),
@@ -68,7 +72,7 @@ impl PianoRoll {
     }
 
     fn cursor_pitch(&self) -> u8 {
-        MIDI_MAX - (self.cursor.1 + self.scroll.1)
+        MIDI_MAX - self.cursor.1
     }
 
     fn ticks_per_cell(&self) -> u32 {
@@ -91,6 +95,13 @@ impl PianoRoll {
         ];
         notes.sort_by(|a, b| a.start_tick.cmp(&b.start_tick));
         notes
+    }
+
+    fn insert_note(&mut self, note: Note) {
+        let index = self.notes.partition_point(|n| n.start_tick < note.start_tick);
+        self.notes.insert(index, note);
+        
+        log(format!("{:?}", self.notes), crate::log::LogLevel::INFO);
     }
 
     fn sync_scroll(&mut self, padding: (u32, u8)) {
@@ -147,6 +158,15 @@ impl PianoRoll {
             PianoRollMotion::End(dir) => x = 
                 self.get_next_note(self.cursor_pitch(), dir)
                     .map_or(self.cursor.0, |n| n.start_tick.saturating_add(n.duration)),
+
+
+            PianoRollMotion::Note => {
+                self.insert_note( Note {
+                    start_tick: self.cursor.0,
+                    pitch: self.cursor_pitch(),
+                    duration: self.note_size * PPQ,
+                });
+            },
         };
 
         self.cursor = (x, y);
@@ -219,7 +239,7 @@ impl Window for PianoRoll {
                 KeyCode::Char('s') => self.handle_motion(count, PianoRollMotion::Subdivision(Dir::Forward)),
                 KeyCode::Char('S') => self.handle_motion(count, PianoRollMotion::Subdivision(Dir::Backward)),
 
-                KeyCode::Enter => None,
+                KeyCode::Enter | KeyCode::Char(' ') => self.handle_motion(count, PianoRollMotion::Note),
 
                 _ => None,
             },
