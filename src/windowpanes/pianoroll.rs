@@ -21,7 +21,7 @@ const NOTE_NAMES: [&str; 12] = [
     "F#", "G", "G#", "A", "A#", "B",
 ];
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 struct Note {
     pitch: u8,
     start_tick: u32,
@@ -53,6 +53,7 @@ pub struct PianoRoll {
     cells_per_beat: u16,
     beats_per_bar: u16,
     ticks_per_beat: u32,
+    max_duration: u32,
 }
 
 impl PianoRoll {
@@ -68,6 +69,7 @@ impl PianoRoll {
             cells_per_beat: 4,
             beats_per_bar: 4,
             ticks_per_beat: PPQ,
+            max_duration: 0,
         }
     }
 
@@ -98,10 +100,27 @@ impl PianoRoll {
     }
 
     fn insert_note(&mut self, note: Note) {
+        self.max_duration = self.max_duration.max(note.duration);
         let index = self.notes.partition_point(|n| n.start_tick < note.start_tick);
         self.notes.insert(index, note);
-        
-        log(format!("{:?}", self.notes), crate::log::LogLevel::INFO);
+    }
+
+    fn note_at_cursor(&self) -> Option<&Note> {
+        self.note_index_at_cursor().map(|i| &self.notes[i])
+    }
+
+    fn note_index_at_cursor(&self) -> Option<usize> {
+        let cell_end = self.cursor.0 + self.ticks_per_cell();
+        let end = self.notes.partition_point(|n| n.start_tick < cell_end);
+
+        self.notes[..end]
+            .iter()
+            .enumerate()
+            .rev()
+            .take_while(|(_, n)| n.start_tick + self.max_duration > self.cursor.0)
+            .find(|(_, n)| n.pitch == self.cursor_pitch() &&
+                n.start_tick + n.duration > self.cursor.0)
+            .map(|(i, _)| i)
     }
 
     fn sync_scroll(&mut self, padding: (u32, u8)) {
@@ -161,11 +180,16 @@ impl PianoRoll {
 
 
             PianoRollMotion::Note => {
-                self.insert_note( Note {
-                    start_tick: self.cursor.0,
-                    pitch: self.cursor_pitch(),
-                    duration: self.note_size * PPQ,
-                });
+                let index = self.note_index_at_cursor();
+                if let Some(i) = index {
+                    self.notes.remove(i);
+                } else {
+                    self.insert_note( Note {
+                        start_tick: self.cursor.0,
+                        pitch: self.cursor_pitch(),
+                        duration: self.note_size * PPQ,
+                    });
+                }
             },
         };
 
@@ -256,6 +280,8 @@ pub struct PianoRollWidget {
     sub_div_style: Style,
     note_style: Style,
     note_accent_style: Style,
+    selected_note_style: Style,
+    selected_note_accent_style: Style,
     white_names: bool,
     black_names: bool,
 }
@@ -320,6 +346,8 @@ impl PianoRollWidget {
             sub_div_style: theme.get(ThemeKey::PianoRollSubDivSeparator),
             note_style: theme.get(ThemeKey::PianoRollNote),
             note_accent_style: theme.get(ThemeKey::PianoRollNoteAccent),
+            selected_note_style: theme.get(ThemeKey::PianoRollNoteSelected),
+            selected_note_accent_style: theme.get(ThemeKey::PianoRollNoteSelectedAccent),
             white_names: true,
             black_names: false,
         }
@@ -431,6 +459,7 @@ impl PianoRollWidget {
     }
 
     fn render_notes(&self, area: Rect, buf: &mut Buffer, state: &PianoRoll) {
+        let hovered_note = state.note_at_cursor();
         for note in &state.notes {
             let row = MIDI_MAX as i32 - (state.scroll.1 as i32 + note.pitch as i32);
 
@@ -457,11 +486,21 @@ impl PianoRollWidget {
             };
 
             let note_str = format!("{label:<length$}");
-            let mut style = self.note_accent_style;
+            let mut style = if hovered_note.is_some_and(|n| n == note) {
+                self.selected_note_accent_style
+            } else {
+                self.note_accent_style
+            };
 
             let y = area.y + row as u16;
             for (i, ch) in note_str.chars().enumerate() {
-                if i != 0 { style = self.note_style; }
+                if i != 0 { 
+                    style = if hovered_note.is_some_and(|n| n == note) {
+                        self.selected_note_style
+                    } else {
+                        self.note_style
+                    }
+                };
 
                 let x = start_cell + i as i32;
                 if x < 0 { continue; }

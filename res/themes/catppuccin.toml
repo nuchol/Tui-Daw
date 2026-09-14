@@ -32,6 +32,7 @@
     dark_green = "#40a02b"
     dark_yellow = "#df8e1d"
     dark_blue = "#1e66f5"
+    dark_peach = "#fe640b"
 
 [options]
     winborder = "rounded"
@@ -96,6 +97,18 @@
 [group.PianoRollNoteAccent]
     fg = "p:dark_green"
     bg = "p:green"
+
+[group.PianoRollNoteSelected]
+    fg = "p:mantle"
+    bg = "p:peach"
+    bold = true
+    italic = true
+
+[group.PianoRollNoteSelectedAccent]
+    fg = "p:dark_peach"
+    bg = "p:peach"
+    bold = true
+    italic = true
 
 [group.PianoRollWhiteKey]
     fg = "p:mantle"

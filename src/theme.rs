@@ -18,7 +18,8 @@ pub enum ThemeKey {
     // File Tree
     FileTreeDir, FileTreeWindow,
     // Piano roll
-    PianoRollNote, PianoRollNoteAccent, PianoRollNoteSelected,
+    PianoRollNote, PianoRollNoteAccent,
+    PianoRollNoteSelected, PianoRollNoteSelectedAccent,
     PianoRollBlackKey, PianoRollWhiteKey,
     PianoRollBlackKeyPressed, PianoRollWhiteKeyPressed,
     PianoRollBarSeparator, PianoRollBeatSeparator, PianoRollSubDivSeparator,
