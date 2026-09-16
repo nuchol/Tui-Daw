@@ -93,6 +93,11 @@ impl App {
     }
 
     fn render(&mut self, frame: &mut Frame) {
+        // TODO: Handle too small areas more gracefully
+        if frame.area().width < 10 || frame.area().height < 10 {
+            return;
+        }
+
         let base_layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints(vec![

@@ -129,7 +129,7 @@ impl PianoRoll {
 
         // Vertical Scrolling
         let rows = MIDI_MAX as u16 + 1;
-        let pad_y = (padding.1 as u16).min((width - 1) / 2);
+        let pad_y = (padding.1 as u16).min((height - 1) / 2);
         let cursor_y = self.cursor.1 as u16;
         let mut first_y = self.scroll.1 as u16;
 
@@ -167,7 +167,6 @@ impl PianoRoll {
                 };
             },
 
-
             PianoRollMotion::Note => {
                 let index = self.note_index_at_cursor();
                 if let Some(i) = index {
@@ -176,7 +175,7 @@ impl PianoRoll {
                     self.insert_note( Note {
                         start_tick: self.cursor.0,
                         pitch: self.cursor_pitch(),
-                        duration: self.note_size * PPQ,
+                        duration: self.note_size * self.ticks_per_beat,
                     });
                 }
             },
@@ -217,7 +216,7 @@ impl Window for PianoRoll {
     }
     
     fn handle_universal(&mut self, cmd: UniversalCommand) {
-        let ticks_per_cell = (PPQ / self.cells_per_beat as u32) as i32;
+        let ticks_per_cell = (self.ticks_per_beat / self.cells_per_beat as u32) as i32;
         match cmd {
             UniversalCommand::Horizontal { count, dir } => {
                 let dx = count as i32 * dir as i32;
@@ -330,7 +329,7 @@ impl PianoRollWidget {
                 theme.get(ThemeKey::PianoRollWhiteKeyPressed)),
             black_style: (theme.get(ThemeKey::PianoRollBlackKey),
                 theme.get(ThemeKey::PianoRollBlackKeyPressed)),
-            bar_div_style: theme.get(ThemeKey::PianoRollBeatSeparator),
+            bar_div_style: theme.get(ThemeKey::PianoRollBarSeparator),
             beat_div_style: theme.get(ThemeKey::PianoRollBeatSeparator),
             sub_div_style: theme.get(ThemeKey::PianoRollSubDivSeparator),
             note_style: theme.get(ThemeKey::PianoRollNote),
@@ -343,16 +342,15 @@ impl PianoRollWidget {
     }
 
     fn ticks_to_cells(tick: u32, state: &PianoRoll) -> u16 {
-        let ticks_per_cell = PPQ / state.cells_per_beat as u32;
+        let ticks_per_cell = state.ticks_per_beat / state.cells_per_beat as u32;
         (tick / ticks_per_cell) as u16
     }
 
-    // TDOD: Fix scrolling
     fn render_piano_keys(&self, area: Rect, buf: &mut Buffer, state: &PianoRoll) {
+        // TODO: Remove hard coding
+        let pressed = vec![46, 48, 51].contains(&midi_note);
         for row in 0..area.height {
-            // TODO: Remove hard coding
             let midi_note = MIDI_MAX - (state.scroll.1 + row as u8);
-            let pressed = vec![46, 48, 51].contains(&midi_note);
 
             let note = (midi_note % 12) as usize;
             let octave = (midi_note as i32 / 12) - 1;
