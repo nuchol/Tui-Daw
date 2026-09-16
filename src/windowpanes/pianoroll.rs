@@ -61,7 +61,6 @@ impl PianoRoll {
         Self {
             cursor: (0, 67),
             note_size: 4,
-            // notes: Self::test_notes(),
             notes: Vec::new(),
             zoom: 1,
             scroll: (0, 45),
@@ -83,20 +82,6 @@ impl PianoRoll {
 
     fn cells_per_bar(&self) -> u16 {
         self.cells_per_beat * self.beats_per_bar
-    }
-
-    fn test_notes() -> Vec<Note> {
-        let mut notes = vec![
-            Note {pitch: 67, start_tick: PPQ * 0, duration: PPQ * 4},
-            Note {pitch: 68, start_tick: PPQ * 2, duration: PPQ * 2},
-            Note {pitch: 69, start_tick: PPQ * 7, duration: PPQ * 6},
-            Note {pitch: 70, start_tick: PPQ * 9, duration: PPQ * 1},
-            Note {pitch: 71, start_tick: PPQ * 11, duration: PPQ * 5},
-            Note {pitch: 68, start_tick: PPQ * 1, duration: PPQ / 2},
-            Note {pitch: 60, start_tick: PPQ * 2, duration: PPQ * 2},
-        ];
-        notes.sort_by(|a, b| a.start_tick.cmp(&b.start_tick));
-        notes
     }
 
     fn insert_note(&mut self, note: Note) {
@@ -173,10 +158,14 @@ impl PianoRoll {
 
             PianoRollMotion::Subdivision(dir) => (),
 
-            // TODO: needs to find next note end not next note start.
-            PianoRollMotion::End(dir) => x = 
-                self.get_next_note(self.cursor_pitch(), dir)
-                    .map_or(self.cursor.0, |n| n.start_tick.saturating_add(n.duration)),
+            PianoRollMotion::End(dir) => {
+                x = if let Some(n) = self.note_at_cursor() {
+                    n.start_tick + n.duration
+                } else {
+                    self.get_next_note(self.cursor_pitch(), dir)
+                        .map_or(self.cursor.0, |n| n.start_tick.saturating_add(n.duration))
+                };
+            },
 
 
             PianoRollMotion::Note => {
