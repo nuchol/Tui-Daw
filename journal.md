@@ -154,13 +154,11 @@
 - [ ] Default note length, velocity and grid as config values
 
 #### Bugs
-- [ ] `render` panics when the pane is narrower than `key_width`:
+- `render` panics when the pane is narrower than `key_width`:
       `area.width - key_width` underflows (`pianoroll.rs:288`)
-- [ ] `PianoRollMotion::Note` mutates notes from inside the *motion* handler and
+- `PianoRollMotion::Note` mutates notes from inside the *motion* handler and
       returns the cursor unchanged — it is not a motion (`:171`)
-- [ ] `E` ignores its `Dir` when the cursor is already on a note, so it behaves
-      identically to `e` (`:161`)
-- [ ] `max_duration` never shrinks when notes are deleted, so the backwards scan
+- `max_duration` never shrinks when notes are deleted, so the backwards scan
       in `note_index_at_cursor` grows monotonically slower
 
 ### Audio Engine

@@ -159,12 +159,16 @@ impl PianoRoll {
             PianoRollMotion::Subdivision(dir) => (),
 
             PianoRollMotion::End(dir) => {
-                x = if let Some(n) = self.note_at_cursor() {
-                    n.start_tick + n.duration
+                let target = if let Some(n) = self.note_at_cursor() {
+                    if count > 1 {
+                        self.get_next_note(count.saturating_sub(1), dir)
+                    } else {
+                        Some(n)
+                    }
                 } else {
-                    self.get_next_note(self.cursor_pitch(), dir)
-                        .map_or(self.cursor.0, |n| n.start_tick.saturating_add(n.duration))
+                    self.get_next_note(count, dir)
                 };
+                x = target.map_or(self.cursor.0, |n| n.start_tick.saturating_add(n.duration));
             },
 
             PianoRollMotion::Note => {
@@ -185,7 +189,24 @@ impl PianoRoll {
         None
     }
 
-    fn get_next_note(&self, pitch: u8, dir: Dir) -> Option<&Note> {
+    fn get_next_note(&self, count: u32, dir: Dir) -> Option<&Note> {
+        let c = count.saturating_sub(1) as usize;
+        match dir {
+            Dir::Forward => {
+                let split = self.notes.partition_point(|n| n.start_tick <= self.cursor.0);
+                let notes = &self.notes[split..];
+                notes.iter().nth(c).or(notes.last())
+            }
+
+            Dir::Backward => {
+                let split = self.notes.partition_point(|n| n.start_tick <= self.cursor.0);
+                let notes = &self.notes[..split];
+                notes.iter().rev().nth(c).or(notes.last())
+            }
+        }
+    }
+
+    fn get_next_note_of_pitch(&self, pitch: u8, dir: Dir) -> Option<&Note> {
         match dir {
             Dir::Forward => {
                 let split = self.notes.partition_point(|n| n.start_tick <= self.cursor.0);
@@ -230,9 +251,14 @@ impl Window for PianoRoll {
             },
 
             // Go to next note (n/N)
-            UniversalCommand::Next { count, dir } => self.cursor.0 = 
-                self.get_next_note(self.cursor_pitch(), dir)
-                    .map_or(self.cursor.0, |n| n.start_tick),
+            UniversalCommand::Next { count, dir } => {
+                let next = self.get_next_note(count, dir).map(|n| (n.start_tick, n.pitch));
+                if let Some(pos) = next {
+                    self.cursor.0 = pos.0;
+                    // TODO: Fix, same for end
+                    self.cursor.1 = pos.1;
+                }
+            },
 
             _ => ()
         }
@@ -348,9 +374,10 @@ impl PianoRollWidget {
 
     fn render_piano_keys(&self, area: Rect, buf: &mut Buffer, state: &PianoRoll) {
         // TODO: Remove hard coding
-        let pressed = vec![46, 48, 51].contains(&midi_note);
+        let pressed = vec![46, 48, 51];
         for row in 0..area.height {
             let midi_note = MIDI_MAX - (state.scroll.1 + row as u8);
+            let is_pressed = pressed.contains(&midi_note);
 
             let note = (midi_note % 12) as usize;
             let octave = (midi_note as i32 / 12) - 1;
@@ -362,7 +389,7 @@ impl PianoRollWidget {
             let key_end = area.x + offset_x + label.len() as u16;
 
             let base_style = if is_black { self.black_style } else { self.white_style };
-            let style = if pressed { base_style.1 } else { base_style.0 };
+            let style = if is_pressed { base_style.1 } else { base_style.0 };
 
             // Background fill
             let y = area.y + row;
