@@ -14,7 +14,7 @@ pub enum ThemeKey {
     // Float
     FloatBorder, FloatBorderNC, FloatTitle, FloatTitleNC, FloatFooter,
     // Modes
-    ModeNormal, ModeInsert, ModeCommand,
+    ModeNormal, ModeInsert, ModeCommand, ModeVisual,
     // File Tree
     FileTreeDir, FileTreeWindow,
     // Piano roll

@@ -70,6 +70,11 @@
     bg = "p:green"
     bold = true
 
+[group.ModeVisual]
+    fg = "p:mantle"
+    bg = "p:mauve"
+    bold = true
+
 [group.FloatBorder]
     fg = "p:blue"
 

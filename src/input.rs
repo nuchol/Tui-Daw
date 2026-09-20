@@ -15,6 +15,7 @@ pub enum Mode {
     Normal,
     Insert,
     Command,
+    Visual,
 }
 
 impl fmt::Display for Mode {
@@ -23,6 +24,7 @@ impl fmt::Display for Mode {
             Mode::Normal => write!(f, "Normal"),
             Mode::Insert => write!(f, "Insert"),
             Mode::Command => write!(f, "Command"),
+            Mode::Visual => write!(f, "Visual"),
         }
     }
 }
@@ -155,6 +157,7 @@ impl Input {
             Mode::Normal => self.handle_normal_mode(key),
             Mode::Insert => self.handle_insert_mode(key),
             Mode::Command => self.handle_command_mode(key),
+            Mode::Visual => self.handle_visual_mode(key),
         };
 
         if action.is_some() {
@@ -178,6 +181,12 @@ impl Input {
                 self.clear_op();
                 self.clear_command();
                 self.mode = Mode::Command;
+                None
+            }
+
+            KeyCode::Char('v') => {
+                self.clear_op();
+                self.mode = Mode::Visual;
                 None
             }
 
@@ -219,6 +228,11 @@ impl Input {
 
     // TODO
     fn handle_insert_mode(&mut self, key: KeyCode) -> Option<InputAction> {
+        return None;
+    }
+    
+    // TODO
+    fn handle_visual_mode(&mut self, key: KeyCode) -> Option<InputAction> {
         return None;
     }
 

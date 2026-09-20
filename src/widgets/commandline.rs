@@ -32,16 +32,16 @@ impl CommandLine {
         let mode_span = Self::get_mode(&input.mode, theme);
 
         let content = match input.mode {
-            Mode::Normal | Mode::Insert => vec![match log::current() {
-                Some((msg, level)) => Self::get_log(msg, level, theme),
-                None => Span::default(),
-            }],
-
             Mode::Command => Self::command_line(
                 &input.command_buffer,
                 input.command_cursor,
                 theme
             ),
+
+            _ => vec![match log::current() {
+                Some((msg, level)) => Self::get_log(msg, level, theme),
+                None => Span::default(),
+            }],
         };
 
         let right = input.display_op();
@@ -98,6 +98,7 @@ impl CommandLine {
             Mode::Normal => theme.get(ThemeKey::ModeNormal),
             Mode::Insert => theme.get(ThemeKey::ModeInsert),
             Mode::Command => theme.get(ThemeKey::ModeCommand),
+            Mode::Visual => theme.get(ThemeKey::ModeVisual),
         };
 
         vec![Span::styled(format!(" {} ",
