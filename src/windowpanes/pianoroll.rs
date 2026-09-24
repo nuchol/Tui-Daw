@@ -90,6 +90,7 @@ impl PianoRoll {
         self.notes.insert(index, note);
     }
 
+    // TODO: Unify all 4 functions
     fn note_at_cursor(&self) -> Option<&Note> {
         self.note_index_at_cursor().map(|i| &self.notes[i])
     }
@@ -107,6 +108,25 @@ impl PianoRoll {
                 n.start_tick + n.duration > self.cursor.0)
             .map(|(i, _)| i)
     }
+
+    fn notes_at_cursor(&self) -> Vec<&Note> {
+        self.note_indices_at_cursor().iter().map(|i| &self.notes[*i]).collect()
+    }
+
+    fn note_indices_at_cursor(&self) -> Vec<usize> {
+        let cell_end = self.cursor.0 + self.ticks_per_cell();
+        let end = self.notes.partition_point(|n| n.start_tick < cell_end);
+
+        self.notes[..end]
+            .iter()
+            .enumerate()
+            .rev()
+            .take_while(|(_, n)| n.start_tick + self.max_duration > self.cursor.0)
+            .filter(|(_, n)| n.start_tick + n.duration > self.cursor.0)
+            .map(|(i, _)| i)
+            .collect()
+    }
+    //////////////////////////
 
     fn sync_scroll(&mut self, padding: (u32, u8)) {
         let (width, height) = self.viewport;
@@ -159,16 +179,17 @@ impl PianoRoll {
             PianoRollMotion::Subdivision(dir) => (),
 
             PianoRollMotion::End(dir) => {
-                let target = if let Some(n) = self.note_at_cursor() {
+                let target = if let Some(n) = self.notes_at_cursor().first() {
                     if count > 1 {
                         self.get_next_note(count.saturating_sub(1), dir)
                     } else {
-                        Some(n)
+                        Some(*n)
                     }
                 } else {
                     self.get_next_note(count, dir)
                 };
                 x = target.map_or(self.cursor.0, |n| n.start_tick.saturating_add(n.duration));
+                y = target.map_or(self.cursor.1, |n| MIDI_MAX.saturating_sub(n.pitch));
             },
 
             PianoRollMotion::Note => {
@@ -199,7 +220,7 @@ impl PianoRoll {
             }
 
             Dir::Backward => {
-                let split = self.notes.partition_point(|n| n.start_tick <= self.cursor.0);
+                let split = self.notes.partition_point(|n| n.start_tick < self.cursor.0);
                 let notes = &self.notes[..split];
                 notes.iter().rev().nth(c).or(notes.last())
             }
@@ -255,8 +276,7 @@ impl Window for PianoRoll {
                 let next = self.get_next_note(count, dir).map(|n| (n.start_tick, n.pitch));
                 if let Some(pos) = next {
                     self.cursor.0 = pos.0;
-                    // TODO: Fix, same for end
-                    self.cursor.1 = pos.1;
+                    self.cursor.1 = MIDI_MAX.saturating_sub(pos.1);
                 }
             },
 
